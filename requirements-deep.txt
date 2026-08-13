@@ -1,0 +1,43 @@
+# CarbonTwinAI — DEEP BENCHMARK environment (.venv-deep)
+# ONLY for the Temporal Fusion Transformer and TSMixer comparators (Task 2, §2.5).
+# Deliberately isolated: these packages pin torch/lightning/numpy aggressively and
+# can break `shap` or `lightgbm` in the main environment.
+#
+# This environment NEVER imports from src/. It communicates with the pipeline
+# through files only:
+#     reads   data/processed/*.parquet
+#     writes  reports/benchmarks/tft_predictions.parquet
+#             reports/benchmarks/tft_metrics.json
+#
+# Install:
+#     python3.11 -m venv .venv-deep
+#     source .venv-deep/bin/activate      # Windows: .venv-deep\Scripts\activate
+#     pip install -r requirements-deep.txt
+#     pip freeze > requirements-deep.lock.txt
+#
+# If the install fights you for more than 30 minutes: STOP.
+# Fall back to Google Colab for the TFT benchmark (it ships a working torch stack),
+# export tft_predictions.parquet, and continue. Do not let this block Gate B.
+
+numpy>=1.26,<3.0
+pandas>=2.1,<3.0
+pyarrow>=14.0
+
+torch>=2.1
+lightning>=2.1
+
+# Choose ONE of the two framework options below. Option A is the safer install.
+
+# ---- Option A (recommended): darts ----------------------------------------
+# Provides TFT and TSMixer with a consistent API, native quantile/probabilistic
+# output, and past/future covariate handling that matches our setup.
+darts>=0.27
+
+# ---- Option B: pytorch-forecasting ---------------------------------------
+# The canonical TFT implementation with variable-selection-network importances.
+# Heavier pinning; more likely to conflict. Uncomment only if Option A fails.
+# pytorch-forecasting>=1.0
+
+scikit-learn>=1.3,<2.0
+matplotlib>=3.8
+tqdm>=4.66

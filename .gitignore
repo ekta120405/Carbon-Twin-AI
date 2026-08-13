@@ -1,0 +1,44 @@
+# environments
+.venv/
+.venv-deep/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# credentials — NEVER commit
+.kaggle/
+kaggle.json
+*.env
+.env
+
+# raw Kaggle data: redownloadable, keep out of git
+data/raw/kaggle/*
+!data/raw/kaggle/.gitkeep
+
+# intermediate + processed artefacts: regenerable from the pipeline
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# DO commit data/raw/nasa_power/ — it is small (<1 MB), and the API has
+# multi-month latency plus known outages. Committing the cache is what makes
+# your results reproducible by a reviewer. See Overview v2 §14 (risk register).
+
+# outputs
+reports/figures/*
+!reports/figures/.gitkeep
+reports/evidence_bundles/*
+!reports/evidence_bundles/.gitkeep
+mlruns/
+*.log
+
+# model binaries
+*.pkl
+*.pt
+*.txt.model
+!requirements*.txt
+
+# OS
+.DS_Store
+Thumbs.db

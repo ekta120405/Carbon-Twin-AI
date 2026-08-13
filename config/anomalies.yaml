@@ -1,0 +1,28 @@
+# Synthetic anomaly injection — Overview v2 §8.
+# OWNED BY: Nishi. FROZEN before any Layer 3 threshold tuning (git tag injector-v1.0).
+# Parameters are SAMPLED from these ranges, never hand-picked per run.
+
+seed: 20260812
+inject_fraction_of_days: 0.18
+
+positive:
+  A1_constant_overclaim:   {delta_range: [0.02, 0.40]}
+  A2_peak_hour_shaving:    {delta_range: [0.05, 0.30], hours_local: [10, 15]}
+  A3_night_injection:      {magnitude_frac_of_capacity: [0.02, 0.15]}
+  A4_day_swap:             {source: sunny_day, target: cloudy_day}
+  A5_weather_spoofing:     {onsite_irr_inflation: [0.10, 0.50]}
+  A6_slow_drift:           {final_delta: [0.05, 0.15], ramp_days: [10, 30]}
+  A7_capacity_violation:   {overshoot: [1.02, 1.25]}
+  A8_flatline:             {run_length_slots: [8, 40]}
+
+hard_negatives:              # must NOT be flagged as fraud
+  N1_inverter_outage:   {source: real_plant_1_event}
+  N2_soiling_loss:      {loss_per_day: 0.002, days: [10, 34]}
+  N3_curtailment:       {cap_frac_of_capacity: [0.5, 0.8]}
+  N4_sensor_dropout:    {missing_run_slots: [4, 24]}
+  N5_heavy_cloud_day:   {source: real_low_csi_day}
+  N6_extreme_heat:      {t2m_offset_c: [4, 8]}
+
+evaluation_sweep:
+  magnitudes: [0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.20, 0.30]
+  windows: [15min, hourly, daily, weekly, monthly]

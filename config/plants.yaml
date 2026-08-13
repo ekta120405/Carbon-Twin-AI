@@ -1,0 +1,27 @@
+# Plant metadata.
+# The Kaggle dataset publishes NO coordinates — these are ASSUMPTIONS.
+# Task 4 resolves them and runs the 3x3 grid-cell sensitivity analysis.
+# Whatever you settle on, record it here and cite it as a limitation in the paper.
+
+plant_1:
+  kaggle_generation: Plant_1_Generation_Data.csv
+  kaggle_weather:    Plant_1_Weather_Sensor_Data.csv
+  latitude:  null        # <-- fill in Task 4
+  longitude: null        # <-- fill in Task 4
+  altitude_m: null
+  tilt_deg: null         # unknown; estimated during Task 5
+  azimuth_deg: 180       # assume due south (northern hemisphere)
+  ac_nameplate_kw: null  # estimated from data, Layer 1.6
+  n_inverters: 22
+
+plant_2:
+  kaggle_generation: Plant_2_Generation_Data.csv
+  kaggle_weather:    Plant_2_Weather_Sensor_Data.csv
+  latitude:  null
+  longitude: null
+  altitude_m: null
+  tilt_deg: null
+  azimuth_deg: 180
+  ac_nameplate_kw: null
+  n_inverters: 22
+  notes: "DC power magnitudes differ ~10x from Plant 1 — normalise per plant."

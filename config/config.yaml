@@ -1,0 +1,102 @@
+# CarbonTwinAI — master configuration
+# Every magic number in the pipeline lives here, not in code.
+
+project:
+  name: CarbonTwinAI
+  random_seed: 42
+
+paths:
+  raw_kaggle:  data/raw/kaggle
+  raw_nasa:    data/raw/nasa_power
+  interim:     data/interim
+  processed:   data/processed
+  reports:     reports
+
+# ---------- Layer 1: data ----------
+layer1:
+  timezone:
+    source_tz: Asia/Kolkata      # Kaggle timestamps are naive IST
+    pipeline_tz: UTC             # everything downstream is tz-aware UTC
+    solar_noon_tolerance_min: 90 # abort if generation peak deviates more
+
+  resample:
+    target_freq: 15min
+    method: clear_sky_index      # NEVER ffill or linear on irradiance directly
+    clearsky_model: ineichen
+
+  quality:
+    min_solar_elevation_deg: 10.0  # daylight mask
+    ceiling_tolerance: 1.05        # 5% headroom on the physical maximum
+    stuck_sensor_run_length: 8     # identical daylight values -> sensor fault
+    drop_negative_power: true
+
+  capacity:
+    estimate_from_data: true
+    percentile: 99.5
+    min_clearsky_index: 0.90
+
+  splits:                        # contiguous DAY blocks — never shuffle
+    train_days:          [1, 20]
+    calib_days:          [21, 25]   # clean only; conformal calibration
+    test_clean_days:     [26, 30]
+    test_injected_days:  [31, 34]
+
+# ---------- Layer 2: twin ----------
+layer2:
+  target: residual_to_physics    # options: residual_to_physics | direct
+  quantiles: [0.1, 0.5, 0.9]
+  model:
+    num_leaves: 15
+    max_depth: 4
+    min_data_in_leaf: 30
+    learning_rate: 0.03
+    n_estimators: 600
+    feature_fraction: 0.7
+    bagging_fraction: 0.7
+    bagging_freq: 1
+    lambda_l2: 5.0
+  monotone:
+    poa_global: 1                # expected power non-decreasing in irradiance
+    clearsky_index: 1
+    temp_cell: -1
+  online:
+    mode: rolling_refit          # simpler and safer than incremental boosting
+    window_days: 20
+    refit_every_days: 1
+
+  physics_anchor:
+    gamma_pdc: -0.004            # /degC, typical c-Si temperature coefficient
+    inverter_ac_dc_ratio: 1.10
+    system_losses: 0.14          # PVWatts default total loss fraction
+
+# ---------- Layer 3: anomaly detection ----------
+layer3:
+  residual:
+    normalise_by: ac_nameplate
+    decision_window: daily        # primary decision level
+  conformal:
+    alpha: 0.05
+    one_sided: true               # over-claims only; under-claims -> fault channel
+    stratify_by_clearsky_index: true
+    csi_bins: [0.0, 0.4, 0.75, 1.05]
+  cusum:
+    k: 0.25                       # slack, in residual sigma units
+    h: 5.0                        # decision interval
+  autoencoder:
+    hidden: [8, 4, 8]
+    epochs: 200
+    learning_rate: 0.001
+
+# ---------- Layer 4: XAI, carbon, reporting ----------
+layer4:
+  shap:
+    explain_flagged_only: true    # full-dataset SHAP is unnecessary
+    max_flags_explained: 500
+  carbon:
+    grid_emission_factor_tco2_per_mwh: 0.79   # CEA India — cite the exact edition
+    carbon_price_usd_per_tco2: 10.0
+  severity_weights:
+    magnitude: 0.4
+    confidence: 0.2
+    persistence: 0.2
+    tco2e_at_risk: 0.2
