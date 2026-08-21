@@ -1,9 +1,19 @@
-# Synthetic anomaly injection — Overview v2 §8.
-# OWNED BY: Nishi. FROZEN before any Layer 3 threshold tuning (git tag injector-v1.0).
-# Parameters are SAMPLED from these ranges, never hand-picked per run.
+# CarbonTwinAI — synthetic anomaly injection config
+# OWNED BY: Ekta (per current team allocation — Injection Framework). FROZEN before any Layer 3 threshold tuning (git tag injector-v1.0).
+# CORRECTED from the Task 3 scaffold version: the eligible injection pool
+# (test_clean days 26-30 + test_injected days 31-34) is only 9 CONTIGUOUS
+# days. A6's old ramp_days [10,30] didn't fit that window at all, and
+# sampling a flat 18% fraction of 9 days gave ~1-2 positive test days --
+# too few for meaningful precision/recall or the MDO sweep (Overview v2
+# SS9.3). Fixed via bootstrap replication: see run_injection.py.
 
 seed: 20260812
-inject_fraction_of_days: 0.18
+
+eligible_days: [26, 34]              # 9 contiguous days, test_clean + test_injected
+n_replicates: 30                     # -> up to 270 labeled day-instances
+per_replicate_positive_frac: 0.35    # ~3 of 9 days per replicate get a positive anomaly
+per_replicate_hard_negative_frac: 0.30  # ~3 of 9 days get a hard negative
+# remainder of each replicate's 9 days are clean controls
 
 positive:
   A1_constant_overclaim:   {delta_range: [0.02, 0.40]}
@@ -11,18 +21,18 @@ positive:
   A3_night_injection:      {magnitude_frac_of_capacity: [0.02, 0.15]}
   A4_day_swap:             {source: sunny_day, target: cloudy_day}
   A5_weather_spoofing:     {onsite_irr_inflation: [0.10, 0.50]}
-  A6_slow_drift:           {final_delta: [0.05, 0.15], ramp_days: [10, 30]}
+  A6_slow_drift:           {final_delta: [0.05, 0.15], ramp_days: [3, 9]}
   A7_capacity_violation:   {overshoot: [1.02, 1.25]}
   A8_flatline:             {run_length_slots: [8, 40]}
 
 hard_negatives:              # must NOT be flagged as fraud
   N1_inverter_outage:   {source: real_plant_1_event}
-  N2_soiling_loss:      {loss_per_day: 0.002, days: [10, 34]}
+  N2_soiling_loss:      {loss_per_day: 0.002, days: [1, 9]}
   N3_curtailment:       {cap_frac_of_capacity: [0.5, 0.8]}
   N4_sensor_dropout:    {missing_run_slots: [4, 24]}
   N5_heavy_cloud_day:   {source: real_low_csi_day}
   N6_extreme_heat:      {t2m_offset_c: [4, 8]}
-  N7_cloud_enhancement:  {source: real_ceiling_training_violation, magnitude_frac_over_ceiling: [0.02, 0.45]}
+  N7_cloud_enhancement: {source: real_high_divergence_day}
 
 evaluation_sweep:
   magnitudes: [0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.20, 0.30]
