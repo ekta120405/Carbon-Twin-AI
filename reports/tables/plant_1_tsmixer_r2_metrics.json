@@ -1,0 +1,21 @@
+{
+  "overall": {
+    "n": 426,
+    "r2": 0.2395328146940393
+  },
+  "clear": {
+    "n": 76,
+    "r2": 0.6110542186202266,
+    "low_n_caveat": false
+  },
+  "partly_cloudy": {
+    "n": 61,
+    "r2": -0.7602409837309871,
+    "low_n_caveat": false
+  },
+  "overcast": {
+    "n": 7,
+    "r2": -93.24094866256108,
+    "low_n_caveat": true
+  }
+}
