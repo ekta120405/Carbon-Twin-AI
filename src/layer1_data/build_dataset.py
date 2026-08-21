@@ -93,12 +93,22 @@ def run(plant_key: str, config: dict, plants_config: dict) -> Path:
     print(f"[{plant_key}]   FROZEN AC nameplate: {final_capacity:.1f} kW")
 
     print(f"[{plant_key}] 5.5: physics ceiling QC")
-    qc = build_clean_mask(combined, final_capacity, lat, lon)
+    qc_cfg = config["layer1"]["quality"]
+    qc = build_clean_mask(
+        combined, final_capacity, lat, lon,
+        ceiling_tolerance_training=qc_cfg["ceiling_tolerance_training"],
+        ceiling_tolerance_fraud=qc_cfg["ceiling_tolerance_fraud"],
+        stuck_run_length=qc_cfg["stuck_sensor_run_length"],
+        min_elevation_deg=qc_cfg["min_solar_elevation_deg"],
+    )
     combined = combined.join(qc)
-    n_ceiling_violations = int(qc["exceeds_ceiling"].sum())
+    n_ceiling_violations_training = int(qc["exceeds_ceiling_training"].sum())
+    n_ceiling_violations_fraud = int(qc["exceeds_ceiling_fraud"].sum())
     n_clean = int(qc["is_clean"].sum())
-    print(f"[{plant_key}]   {n_ceiling_violations} physics-ceiling violations "
-          f"(excluded from training, max-severity flags for Layer 3)")
+    print(f"[{plant_key}]   {n_ceiling_violations_training} training-exclusion ceiling "
+          f"violations (generous threshold, excluded from Layer 2 training only)")
+    print(f"[{plant_key}]   {n_ceiling_violations_fraud} fraud-severity ceiling "
+          f"violations (strict threshold, genuine max-severity Layer 3 flags)")
     print(f"[{plant_key}]   {n_clean}/{len(combined)} rows clean")
 
     print(f"[{plant_key}] 5.5: feature engineering (twin_* / evidence_* separation)")
@@ -140,7 +150,8 @@ def run(plant_key: str, config: dict, plants_config: dict) -> Path:
             "longitude": lon,
             "n_rows": len(final),
             "n_clean": n_clean,
-            "n_ceiling_violations": n_ceiling_violations,
+            "n_ceiling_violations_training": n_ceiling_violations_training,
+            "n_ceiling_violations_fraud": n_ceiling_violations_fraud,
         }, fh)
 
     print(f"[{plant_key}] DONE -> {out_path} ({len(final)} rows, {len(final.columns)} columns)")

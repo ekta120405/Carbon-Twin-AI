@@ -22,6 +22,7 @@ hard_negatives:              # must NOT be flagged as fraud
   N4_sensor_dropout:    {missing_run_slots: [4, 24]}
   N5_heavy_cloud_day:   {source: real_low_csi_day}
   N6_extreme_heat:      {t2m_offset_c: [4, 8]}
+  N7_cloud_enhancement:  {source: real_ceiling_training_violation, magnitude_frac_over_ceiling: [0.02, 0.45]}
 
 evaluation_sweep:
   magnitudes: [0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.20, 0.30]

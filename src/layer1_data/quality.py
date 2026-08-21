@@ -88,30 +88,53 @@ def build_clean_mask(
     poa_col: str = "ghi_15min",
     t2m_col: str = "t2m",
     ws2m_col: str = "ws2m",
-    ceiling_tolerance: float = 1.05,
+    ceiling_tolerance_training: float = 1.32,
+    ceiling_tolerance_fraud: float = 1.05,
     stuck_run_length: int = 8,
     min_elevation_deg: float = 10.0,
 ) -> pd.DataFrame:
     """
     Combines every QC test into one output table with individual boolean
-    columns PLUS a final `is_clean` = all checks passed. Individual columns
-    are kept because a ceiling violation is itself a maximum-severity Layer 3
-    flag, not just a training-exclusion -- Layer 3 will read this table too.
+    columns PLUS a final `is_clean` = all checks passed.
+
+    Two SEPARATE ceilings, not one, per the Task 5 finding that NASA POWER's
+    grid-cell GHI systematically underestimates real point irradiance during
+    cloud-enhancement moments (mean +27-28% divergence vs on-site sensors,
+    confirmed both plants):
+
+      - `ceiling_tolerance_training` (generous): defines `exceeds_ceiling_training`,
+        used ONLY to exclude rows from Layer 2 twin training. Legitimate
+        cloud-enhancement days should NOT be thrown away as training signal.
+      - `ceiling_tolerance_fraud` (strict): defines `exceeds_ceiling_fraud`,
+        the genuine maximum-severity Layer 3 flag (night generation, gross
+        overshoot only) -- this is what "physically impossible" should mean.
+
+    `is_clean` (for training) uses the training threshold.
+    `exceeds_ceiling_fraud` is what Layer 3 should read for max-severity flags,
+    NOT `exceeds_ceiling_training`.
     """
-    ceiling = compute_physics_ceiling(
-        df[poa_col], df[t2m_col], df[ws2m_col], ac_nameplate_kw, headroom=ceiling_tolerance
+    ceiling_training = compute_physics_ceiling(
+        df[poa_col], df[t2m_col], df[ws2m_col], ac_nameplate_kw,
+        headroom=ceiling_tolerance_training
+    )
+    ceiling_fraud = compute_physics_ceiling(
+        df[poa_col], df[t2m_col], df[ws2m_col], ac_nameplate_kw,
+        headroom=ceiling_tolerance_fraud
     )
     is_daylight = apply_daylight_mask(df, latitude, longitude, min_elevation_deg)
-    exceeds_ceiling = (df[ceiling_col] > ceiling) & is_daylight
+    exceeds_ceiling_training = (df[ceiling_col] > ceiling_training) & is_daylight
+    exceeds_ceiling_fraud = (df[ceiling_col] > ceiling_fraud) & is_daylight
     is_negative = df[ceiling_col] < 0
     is_stuck = flag_stuck_sensor(df[ceiling_col], stuck_run_length) & is_daylight
 
-    is_clean = is_daylight & ~exceeds_ceiling & ~is_negative & ~is_stuck
+    is_clean = is_daylight & ~exceeds_ceiling_training & ~is_negative & ~is_stuck
 
     return pd.DataFrame({
-        "physics_ceiling_kw": ceiling,
+        "physics_ceiling_training_kw": ceiling_training,
+        "physics_ceiling_fraud_kw": ceiling_fraud,
         "is_daylight": is_daylight,
-        "exceeds_ceiling": exceeds_ceiling,
+        "exceeds_ceiling_training": exceeds_ceiling_training,
+        "exceeds_ceiling_fraud": exceeds_ceiling_fraud,
         "is_negative": is_negative,
         "is_stuck": is_stuck,
         "is_clean": is_clean,

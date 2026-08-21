@@ -21,12 +21,17 @@ layer1:
 
   resample:
     target_freq: 15min
-    method: clear_sky_index      # NEVER ffill or linear on irradiance directly
+    method: clear_sky_index      # NEVER ffil l or linear on irradiance directly
     clearsky_model: ineichen
 
   quality:
     min_solar_elevation_deg: 10.0  # daylight mask
-    ceiling_tolerance: 1.05        # 5% headroom on the physical maximum
+    ceiling_tolerance_training: 1.32   # generous — excludes from Layer 2 training only.
+                                        # Recalibrated empirically against observed
+                                        # NASA-vs-onsite divergence (Task 5 finding:
+                                        # mean +27-28% at violation rows, both plants).
+    ceiling_tolerance_fraud: 1.05      # strict — reserved for Layer 3 max-severity flags
+                                        # (night generation, gross overshoot only).
     stuck_sensor_run_length: 8     # identical daylight values -> sensor fault
     drop_negative_power: true
 
