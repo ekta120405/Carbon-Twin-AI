@@ -78,6 +78,17 @@ layer2:
     gamma_pdc: -0.004            # /degC, typical c-Si temperature coefficient
     inverter_ac_dc_ratio: 1.10
     system_losses: 0.14          # PVWatts default total loss fraction
+  baselines:
+    seed: 20260812                # reuse the injector's seed for consistency across the project
+    ridge:
+      alpha: 1.0
+    lstm:
+      seq_len: 8                  # 8 x 15-min = 2 hours of weather context
+      hidden_size: 32
+      num_layers: 2
+      epochs: 60
+      learning_rate: 0.001
+      batch_size: 64
 
 # ---------- Layer 3: anomaly detection ----------
 layer3:
