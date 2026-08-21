@@ -51,15 +51,20 @@ layer2:
   target: residual_to_physics    # options: residual_to_physics | direct
   quantiles: [0.1, 0.5, 0.9]
   model:
-    num_leaves: 15
-    max_depth: 4
-    min_data_in_leaf: 30
-    learning_rate: 0.03
-    n_estimators: 600
+    # Tuned down from the original (num_leaves=15, n_estimators=600,
+    # lambda_l2=5.0) after empirically confirming severe overfitting on
+    # this dataset's small per-regime training counts (e.g. only 9-12 rows
+    # at Kt<0.4) -- original config produced negative test-set R^2 in
+    # overcast conditions for plant_2. See Layer 2 build notes.
+    num_leaves: 7
+    max_depth: 3
+    min_data_in_leaf: 20
+    learning_rate: 0.05
+    n_estimators: 80
     feature_fraction: 0.7
     bagging_fraction: 0.7
     bagging_freq: 1
-    lambda_l2: 5.0
+    lambda_l2: 10.0
   monotone:
     poa_global: 1                # expected power non-decreasing in irradiance
     clearsky_index: 1

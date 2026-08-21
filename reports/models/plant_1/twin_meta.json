@@ -1,0 +1,31 @@
+{
+  "feature_cols": [
+    "twin_ghi",
+    "twin_clearsky_ghi",
+    "twin_kt",
+    "twin_t2m",
+    "twin_rh2m",
+    "twin_ws2m",
+    "twin_ps",
+    "twin_prectotcorr",
+    "twin_solar_zenith",
+    "twin_solar_elevation",
+    "twin_solar_azimuth",
+    "twin_airmass",
+    "twin_cell_temp",
+    "twin_hour_sin",
+    "twin_hour_cos",
+    "twin_doy_sin",
+    "twin_doy_cos",
+    "twin_ghi_lag1",
+    "twin_ghi_lag2",
+    "twin_kt_lag1"
+  ],
+  "ac_nameplate_kw": 27985.81448437999,
+  "monotone_map": {
+    "twin_ghi": 1,
+    "twin_clearsky_ghi": 1,
+    "twin_kt": 1,
+    "twin_cell_temp": -1
+  }
+}
