@@ -1,0 +1,167 @@
+{
+  "fetched_at_utc": "2026-08-20T16:17:43.864599",
+  "cells": [
+    {
+      "site": "nasik",
+      "lat": 19.0024,
+      "lon": 72.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p19_00_p72_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 19.0024,
+      "lon": 73.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p19_00_p73_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 19.0024,
+      "lon": 74.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p19_00_p74_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 20.0024,
+      "lon": 72.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p20_00_p72_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 20.0024,
+      "lon": 73.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p20_00_p73_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 20.0024,
+      "lon": 74.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p20_00_p74_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 21.0024,
+      "lon": 72.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p21_00_p72_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 21.0024,
+      "lon": 73.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p21_00_p73_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "nasik",
+      "lat": 21.0024,
+      "lon": 74.7945,
+      "path": "data\\raw\\nasa_power\\nasik_p21_00_p74_79.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 400
+    },
+    {
+      "site": "gandikota",
+      "lat": 13.9164,
+      "lon": 77.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p13_92_p77_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 13.9164,
+      "lon": 78.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p13_92_p78_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 13.9164,
+      "lon": 79.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p13_92_p79_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 14.9164,
+      "lon": 77.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p14_92_p77_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 14.9164,
+      "lon": 78.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p14_92_p78_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 14.9164,
+      "lon": 79.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p14_92_p79_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 15.9164,
+      "lon": 77.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p15_92_p77_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 433
+    },
+    {
+      "site": "gandikota",
+      "lat": 15.9164,
+      "lon": 78.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p15_92_p78_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    },
+    {
+      "site": "gandikota",
+      "lat": 15.9164,
+      "lon": 79.2919,
+      "path": "data\\raw\\nasa_power\\gandikota_p15_92_p79_29.parquet",
+      "cached": false,
+      "n_rows": 960,
+      "n_missing": 440
+    }
+  ]
+}

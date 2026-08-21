@@ -6,19 +6,21 @@
 plant_1:
   kaggle_generation: Plant_1_Generation_Data.csv
   kaggle_weather:    Plant_1_Weather_Sensor_Data.csv
-  latitude:  null        # <-- fill in Task 4
-  longitude: null        # <-- fill in Task 4
+  latitude: 14.9164
+  longitude: 78.2919
+  coordinate_source: "Kadapa Ultra Mega Solar Park, satellite-verified, ~11km from Gandikota; resolved empirically via clear-sky-index correlation (r=0.8236, pairing margin=0.0136 — provisional, see reports/tables/coordinate_sensitivity.csv)"
   altitude_m: null
-  tilt_deg: null         # unknown; estimated during Task 5
-  azimuth_deg: 180       # assume due south (northern hemisphere)
-  ac_nameplate_kw: null  # estimated from data, Layer 1.6
+  tilt_deg: null              # unknown; estimated during Task 5
+  azimuth_deg: 180             # assume due south (northern hemisphere)
+  ac_nameplate_kw: null        # estimated from data, Layer 1.6
   n_inverters: 22
 
 plant_2:
   kaggle_generation: Plant_2_Generation_Data.csv
   kaggle_weather:    Plant_2_Weather_Sensor_Data.csv
-  latitude:  null
-  longitude: null
+  latitude: 20.0024
+  longitude: 73.7945
+  coordinate_source: "city centroid — no specific facility identifiable, see paper limitations; resolved empirically via clear-sky-index correlation (r=0.6483, pairing margin=0.0136 — provisional, see reports/tables/coordinate_sensitivity.csv)"
   altitude_m: null
   tilt_deg: null
   azimuth_deg: 180
