@@ -102,7 +102,16 @@ layer3:
     csi_bins: [0.0, 0.4, 0.75, 1.05]
   cusum:
     k: 0.25                       # slack, in residual sigma units
-    h: 5.0                        # decision interval
+    h: 5.0                        # SCAFFOLD DEFAULT ONLY -- not used directly.
+                                   # Actual threshold is empirically bootstrap-
+                                   # calibrated at runtime against the pooled
+                                   # calib+test_clean reference (see
+                                   # calibrate_h_from_clean_data() in cusum.py).
+                                   # As of the calibration in this commit:
+                                   # h=4.0 for a 9-day window at ~5% target FPR,
+                                   # both plants. Will differ if the reference
+                                   # pool or window length changes -- recompute,
+                                   # don't hardcode.
   autoencoder:
     hidden: [8, 4, 8]
     epochs: 200
