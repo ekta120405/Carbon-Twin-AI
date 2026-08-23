@@ -156,6 +156,33 @@ def flag_stuck_sensor(df: pd.DataFrame, run_length_threshold: int = 8) -> pd.Ser
     target it (ac_power_diff1). Don't rely on the autoencoder for A8;
     this deterministic check is the actual mechanism that catches it.
 
+    KNOWN, DOCUMENTED FALSE-POSITIVE RISK (found via hard-negative
+    specificity check; attempted fix, REVERTED after verification --
+    see below): this rule also fires on N3_curtailment (a legitimate
+    hard negative -- grid-ordered output cap via
+    synthesize_n3_curtailment's ac_power.clip(upper=cap_value),
+    hard_negatives.py), whenever real generation exceeds the cap for
+    >= run_length_threshold consecutive slots. Confirmed on real data:
+    2/2 tested N3 examples on plant_1 produced false positives this way
+    (plant_2's tested examples happened not to, only because that day's
+    cloud cover broke the cap into shorter runs below the threshold --
+    not because the logic handled it correctly).
+
+    A fix using the sign of (ac_power - expected_q50) within each frozen
+    run (constant sign -> genuine stuck sensor; sign change -> legitimate
+    cap being entered/exited) was tried and VERIFIED, on real data, to
+    cause a severe regression: A8 coverage dropped from 8/8 to 4/8
+    (plant_1) and 7/7 to 1/7 (plant_2). A freeze that happens to start
+    near or after the natural daily peak can show the SAME kind of sign
+    change as legitimate curtailment, simply because real generation
+    declines toward evening while the frozen value stays put -- the
+    one-example hypothesis this fix was based on did not generalize.
+    REVERTED for this reason; do not reintroduce without a fix verified
+    against a larger, more representative sample of BOTH A8 and N3
+    examples (the n=1/2 available this session is not enough to derive
+    a reliable discriminator -- exactly the kind of thing the planned
+    full 30-replicate benchmark would help resolve properly).
+
     Returns a boolean Series, True where a stuck/frozen-value run of at
     least run_length_threshold consecutive daylight readings is detected.
     """

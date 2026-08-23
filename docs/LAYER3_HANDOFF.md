@@ -114,11 +114,58 @@ never recomputed post-injection (confirmed: `is_stuck=False` on all
 consecutive identical daylight `ac_power` values (same threshold as
 Layer 1's original `stuck_sensor_run_length` config) — gives **8/8
 (plant_1), 7/7 (plant_2)** coverage with **0/25 false positives on
-either plant**. Cleaner separation than A3's guardrail; no known
-noise/fraud overlap here.
+either plant**.
 
-Both wired into `conformal.py`'s `classify_day`/`classify_days` as
-parallel, guaranteed paths, checked BEFORE the conformal threshold.
+**KNOWN, DOCUMENTED FALSE-POSITIVE RISK (found later, via the hard-
+negative specificity check — Section 8 below — NOT fixed, don't
+reintroduce the attempted fix without a larger sample):** this rule also
+fires on `N3_curtailment` (grid-ordered output cap — legitimate, not
+fraud) whenever the cap binds continuously for ≥8 slots. Confirmed:
+2/2 tested plant_1 examples were false positives this way. An attempted
+fix (flag a run as genuinely-stuck only if `ac_power` stays on one
+consistent side of `expected_q50` throughout — verified true for the
+one A8 example checked, and true for the N3 counter-example) was
+implemented, then VERIFIED on the full A8 label set and found to cause
+a severe regression: A8 coverage dropped from 8/8→4/8 (plant_1) and
+7/7→1/7 (plant_2). A freeze starting near/after the daily peak can show
+the same kind of sign-change as legitimate curtailment simply because
+real generation declines toward evening while the frozen value stays
+put — the one-example hypothesis didn't generalize. **Reverted.** Do
+not re-attempt this fix without checking against a much larger, more
+representative sample of both A8 and N3 examples first (the n=1-2
+available this session is not enough to derive a reliable
+discriminator — this is precisely what the full 30-replicate benchmark,
+Task 7, is for).
+
+Both `flag_night_injection` and `flag_stuck_sensor` are wired into
+`conformal.py`'s `classify_day`/`classify_days` as parallel, guaranteed
+paths, checked BEFORE the conformal threshold.
+
+---
+
+## 8. Hard-negative specificity check (bounded, not the full Task 7 benchmark)
+
+Every module above got a build-time correctness check before being
+called done — but until this point, every check was "does it catch
+fraud correctly." The equally load-bearing other half of the one-sided
+design (Overview v2 §2.6) — "does it correctly leave legitimate
+operational faults alone" — had never been tested. Ran 2 real examples
+per hard-negative type (N1-N7), both plants (28 total), through the
+full 3.1→3.6 pipeline.
+
+**Result: 26/28 correctly left unflagged (specificity 0.929).** The 2
+false positives are both the N3_curtailment/stuck-sensor interaction
+documented in Section 3 above — not spread across other types, not a
+broader systemic problem. All other hard-negative types (N1, N2, N4,
+N5, N6, N7) showed 0 false positives across both plants in this sample.
+
+This is a bounded sanity check (2 examples/type, not the full
+population), not the formal Task 7 benchmark (which needs the full
+30-replicate sweep, proper sample sizes, and the MDO curve) — but it's
+the right-sized check for "does the build actually work," at the same
+scale already used successfully elsewhere this session (4 A6 examples,
+12 replicates for the 3.6 signal check). See
+`check_hard_negatives.py` to reproduce or extend.
 
 ---
 
