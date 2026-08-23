@@ -81,6 +81,39 @@ def compute_stuck_sensor_severity_kwh(
     return gap_kwh.groupby(ts_table.loc[stuck_mask].index.date).sum()
 
 
+def compute_divergence_severity_pct(ts_table: pd.DataFrame, labels: pd.Series):
+    """
+    Mean evidence_irr_divergence_pct restricted to FLAGGED days only (any
+    flag type) -- NOT the whole evaluation window. This is the THIRD
+    instance of the same aggregation mistake in this session (see 3.4's
+    autoencoder day-mean/day-max diluting A8, and this module's original
+    excess-energy severity conflating unrelated daylight variation with
+    night-injection fraud): a localized signal averaged over a mostly-
+    unaffected background gets diluted toward the background's value,
+    regardless of how strong the signal actually is on the days that
+    matter. Confirmed empirically before this fix existed: the naive
+    whole-table mean showed IDENTICAL values (0.259234) across 6
+    different injected replicates with different anomaly mixes -- a
+    clear sign of dilution, not a genuinely flat/uninformative signal.
+
+    Restricted to daylight rows within flagged days, since on-site
+    irradiation readings aren't meaningfully comparable at night.
+
+    Returns None (NOT 0.0) if there are no flagged days -- "no evidence
+    to compute this from" is not the same claim as "zero divergence
+    measured", and callers must not silently conflate the two when this
+    feeds into a combined score.
+    """
+    flagged_dates = labels[labels.str.startswith("flagged")].index
+    if len(flagged_dates) == 0:
+        return None
+    daylight = ts_table[ts_table["is_daylight"]]
+    flagged_rows = daylight[pd.Series(daylight.index.date, index=daylight.index).isin(flagged_dates)]
+    if len(flagged_rows) == 0:
+        return None
+    return float(flagged_rows["evidence_irr_divergence_pct"].mean())
+
+
 def compute_daily_flag_severity_kwh(
     daily: pd.DataFrame, labels: pd.Series, ts_table: pd.DataFrame, dt_hours: float = 0.25,
 ) -> pd.Series:
