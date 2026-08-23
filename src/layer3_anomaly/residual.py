@@ -65,6 +65,79 @@ def compute_daily_energy_residual(
     return grouped
 
 
+NIGHT_INJECTION_DARK_GHI_THRESHOLD = 1.0  # W/m2, effectively zero, float noise only
+NIGHT_INJECTION_TOLERANCE_FRAC = 0.015    # fraction of ac_nameplate_kw
+
+
+def flag_night_injection(df: pd.DataFrame, ac_nameplate_kw: float) -> pd.Series:
+    """
+    Deterministic guardrail for A3 (night injection) -- a categorically
+    different case from 3.1-3.3's magnitude-based residual test, which is
+    STRUCTURALLY BLIND to it: compute_daily_energy_residual() filters to
+    is_daylight rows before aggregating, so any claim recorded when
+    is_daylight=False contributes exactly zero to r_day, regardless of
+    size. This function is a separate, additive flag path -- it does not
+    change daylight-only residual logic above, which stays correctly
+    scoped for continuous over-claiming during generation hours.
+
+    TWO PRIOR APPROACHES WERE TRIED AND REJECTED, both verified against
+    real injected replicate data, not assumed:
+    - Using the existing precomputed `exceeds_ceiling_fraud` column:
+      REJECTED. The injector (src/injection/run_injection.py) only
+      modifies `ac_power` -- it never recomputes derived QC columns
+      afterward, so this flag is stale (computed on pre-injection clean
+      data) and never fires on injected rows. Confirmed empirically: 0/11
+      A3-injected nights showed exceeds_ceiling_fraud=True.
+    - Gating on `is_daylight==False` with a flat/recomputed-ceiling
+      tolerance: REJECTED. `is_daylight` uses a min_solar_elevation_deg=10
+      cutoff (config.yaml), so "night" includes a real dawn/dusk twilight
+      zone with legitimate, sometimes substantial generation (up to
+      ~2000 kW observed). A flat tolerance and a recomputed
+      physics_ceiling_fraud_kw comparison both produced high false-
+      positive rates (10/10 and 20/20 clean nights tested) concentrated
+      exactly at IST sunrise/sunset.
+
+    RESOLUTION: gate on `twin_clearsky_ghi < NIGHT_INJECTION_DARK_GHI_THRESHOLD`
+    instead of `is_daylight`. Clearsky GHI is the actual input
+    physics_anchor.py's PVWatts chain is computed from -- when it's zero,
+    physics_ac_kw is zero BY CONSTRUCTION of the formula, not by an
+    empirically-tuned threshold. This has no calibration gap to discover,
+    unlike the two rejected approaches above.
+
+    Tolerance: NIGHT_INJECTION_TOLERANCE_FRAC (1.5% of ac_nameplate_kw).
+    Verified against real clean train/calib data, both plants:
+    - plant_1: 0/1039 genuinely-dark clean rows exceed this tolerance
+    - plant_2: 4/1097 do (~0.36%) -- a small, KNOWN, irreducible overlap
+      between plant_2's night sensor noise and A3's own minimum injection
+      magnitude (2% of capacity, config/anomalies.yaml) -- not fully
+      eliminable by any threshold choice; report this honestly rather
+      than picking a tolerance high enough to hide it (which would also
+      start missing real low-magnitude A3 injections).
+    Verified coverage against real A3-injected replicates: 11/11 plant_1
+    and 5/5 plant_2 injected days had at least one row flagged (the unit
+    that matters, since this feeds a DAY-level flag in 3.3 -- not every
+    individual injected row needs to be caught, just enough per day).
+
+    Returns a boolean Series, True where a night-injection-style
+    fabrication is suspected.
+    """
+    is_dark = df["twin_clearsky_ghi"] < NIGHT_INJECTION_DARK_GHI_THRESHOLD
+    tolerance_kw = NIGHT_INJECTION_TOLERANCE_FRAC * ac_nameplate_kw
+    return is_dark & (df["ac_power"] > tolerance_kw)
+
+
+def compute_daily_night_injection_flag(df: pd.DataFrame, ac_nameplate_kw: float) -> pd.Series:
+    """
+    Day-level aggregation of flag_night_injection(): True if ANY row that
+    day trips the guardrail. Operates on the FULL table (not daylight-
+    filtered) since flag_night_injection specifically targets non-daylight
+    rows. Index is per-date, matching compute_daily_energy_residual()'s
+    output index so the two can be joined directly.
+    """
+    row_flags = flag_night_injection(df, ac_nameplate_kw)
+    return row_flags.groupby(df.index.date).any()
+
+
 def build_residual_table(
     twin, physics_ac_kw: pd.Series, df: pd.DataFrame, ac_nameplate_kw: float,
     twin_feature_cols: list[str],

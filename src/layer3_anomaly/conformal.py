@@ -143,9 +143,15 @@ def flag_days(daily_r_day: pd.Series, result: ConformalResult) -> pd.Series:
     return daily_r_day > result.threshold
 
 
-def classify_day(r_day: float, result: ConformalResult) -> str:
+def classify_day(r_day: float, result: ConformalResult, night_injection_flagged: bool = False) -> str:
     """
     Layer 3.3: one-sided day classification.
+    - "flagged_night_injection": night_injection_flagged=True -> A3-style
+      fabrication detected by residual.py's flag_night_injection(). This
+      is a PARALLEL, deterministic, guaranteed path -- checked FIRST,
+      independent of r_day/threshold, because 3.1's daylight-only
+      aggregation makes r_day structurally blind to night injection (see
+      flag_night_injection's docstring for the full investigation).
     - "flagged_overclaim": r_day > conformal threshold -> candidate fraud
     - "fault_underclaim":  r_day < 0 -> under-generation, operational
       fault channel (inverter outage, soiling, curtailment) -- NEVER a
@@ -166,6 +172,8 @@ def classify_day(r_day: float, result: ConformalResult) -> str:
     and/or a dedicated fault-side calibration -- not be smuggled into
     this simple rule silently.
     """
+    if night_injection_flagged:
+        return "flagged_night_injection"
     if r_day > result.threshold:
         return "flagged_overclaim"
     elif r_day < 0:
@@ -173,9 +181,26 @@ def classify_day(r_day: float, result: ConformalResult) -> str:
     return "normal"
 
 
-def classify_days(daily_r_day: pd.Series, result: ConformalResult) -> pd.Series:
-    """Vectorized wrapper around classify_day for a full daily series."""
-    return daily_r_day.apply(lambda r: classify_day(r, result))
+def classify_days(
+    daily_r_day: pd.Series, result: ConformalResult,
+    night_injection_flagged: pd.Series | None = None,
+) -> pd.Series:
+    """
+    Vectorized wrapper around classify_day. night_injection_flagged, if
+    given, must share daily_r_day's index (e.g. from
+    residual.py's compute_daily_night_injection_flag()) -- defaults to
+    all-False (no night-injection check applied) if omitted, for
+    backward compatibility with callers that haven't wired it in yet.
+    """
+    if night_injection_flagged is None:
+        night_injection_flagged = pd.Series(False, index=daily_r_day.index)
+    return pd.Series(
+        [
+            classify_day(r, result, bool(night_injection_flagged.get(idx, False)))
+            for idx, r in daily_r_day.items()
+        ],
+        index=daily_r_day.index,
+    )
 
 
 def tag_kt_regime(daily_kt: pd.Series, csi_bins: list[float]) -> pd.Series:
