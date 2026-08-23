@@ -206,3 +206,34 @@ class PIGBQRTwin:
         with open(out / "twin_meta.json", "w") as fh:
             json.dump({"feature_cols": self.feature_cols, "ac_nameplate_kw": self.ac_nameplate_kw,
                        "monotone_map": self.monotone_map}, fh, indent=2)
+
+    @classmethod
+    def load(cls, model_dir: str) -> "PIGBQRTwin":
+        """
+        Loads a twin saved via .save(). Used by every Layer 3 module that
+        needs the twin's predictions. Loaded boosters are read-only for
+        prediction -- this does NOT restore an LGBMRegressor you can call
+        .fit() on again; use train_twin.py for retraining.
+        """
+        import json
+        from pathlib import Path
+        import lightgbm as lgb
+
+        model_dir = Path(model_dir)
+        with open(model_dir / "twin_meta.json") as fh:
+            meta = json.load(fh)
+
+        twin = cls(feature_cols=meta["feature_cols"], ac_nameplate_kw=meta["ac_nameplate_kw"],
+                    monotone_map=meta.get("monotone_map", {}))
+        twin.models_ = {}
+        for q in QUANTILES:
+            booster = lgb.Booster(model_file=str(model_dir / f"twin_q{int(q*100)}.txt"))
+
+            class _ReadOnlyWrapper:
+                def __init__(self, booster):
+                    self._booster = booster
+                def predict(self, X):
+                    return self._booster.predict(X)
+
+            twin.models_[q] = _ReadOnlyWrapper(booster)
+        return twin
