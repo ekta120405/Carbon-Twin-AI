@@ -33,6 +33,8 @@ anomaly type:
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pandas as pd
 
 from src.layer3_anomaly.residual import (
@@ -112,6 +114,152 @@ def compute_divergence_severity_pct(ts_table: pd.DataFrame, labels: pd.Series):
     if len(flagged_rows) == 0:
         return None
     return float(flagged_rows["evidence_irr_divergence_pct"].mean())
+
+
+RISK_BANDS = [
+    (0, 25, "Low"),
+    (25, 50, "Elevated"),
+    (50, 75, "High"),
+    (75, 101, "Critical"),  # 101 so score=100 lands in Critical, not off the end
+]
+
+
+@dataclass
+class RiskScoreInputs:
+    frac_flagged: float
+    cum_severity_frac: float          # cumulative severity_kwh / total claimed_kwh
+    cusum_max_s: float
+    cusum_h: float                    # the calibrated h used, for normalization
+    calibration_ratio: float
+    calibration_ratio_clean_baseline: float  # THIS PLANT's own clean-data CR, not 1.0
+    divergence_flagged_only: float | None    # None if no flagged days
+
+
+@dataclass
+class RiskScoreResult:
+    score: float
+    band: str
+    components: dict  # each normalized [0,1] component, for transparency/debugging
+
+
+def _clip01(x: float) -> float:
+    return max(0.0, min(1.0, x))
+
+
+def compute_risk_score(
+    inputs: RiskScoreInputs,
+    weights: dict = None,
+    severity_frac_cap: float = 0.20,
+    calibration_ratio_deviation_cap: float = 0.5,
+    divergence_cap: float = 0.3,
+) -> RiskScoreResult:
+    """
+    Combines 3.1-3.5's five outputs into a 0-100 project-level risk score.
+
+    Each input is normalized to [0,1] BEFORE weighting -- the five raw
+    signals are on wildly different scales (a fraction, kWh-fraction,
+    a CUSUM statistic relative to its own threshold, a ratio near 1.0,
+    a percentage), the same scaling problem already handled for 3.4's
+    autoencoder inputs.
+
+    NORMALIZATION CHOICES, EACH DOCUMENTED:
+    - frac_flagged: already naturally in [0,1], used directly.
+    - severity: cum_severity_frac (severity_kwh / total claimed_kwh) is
+      linearly scaled against `severity_frac_cap` (default 20% of total
+      claimed energy) -- chosen as a round, conservative "even a fifth of
+      claimed energy being unexplained is already severe" ceiling; not
+      empirically derived, should be revisited once more replicates are
+      scored (n=6/plant sampled this session is not enough to fit a
+      principled cap).
+    - CUSUM: cusum_max_s / cusum_h, clipped to [0,1] -- this is a natural
+      normalization already grounded in a real calibrated quantity (h),
+      not an arbitrary cap: 1.0 means CUSUM's OWN calibrated threshold
+      was reached, not an externally chosen number.
+    - calibration_ratio: measured as deviation from THIS PLANT'S OWN
+      clean-data calibration ratio, NOT from a universal 1.0. Verified
+      necessary: plant_2's real clean CR is 0.897 (10.3% below 1.0)
+      purely from its own physics-anchor fit characteristics (see
+      docs/LAYER2_HANDOFF.md Section 4) -- scoring against absolute 1.0
+      would make plant_2 look moderately risky even when genuinely
+      clean. |CR - clean_baseline| is linearly scaled against
+      `calibration_ratio_deviation_cap` (default 0.5, i.e. a 50%
+      relative swing from the plant's own clean baseline is treated as
+      maximally severe).
+    - divergence: |divergence_flagged_only|, scaled against
+      `divergence_cap`. Uses absolute value since the flagged-only
+      values observed this session were both positive and negative with
+      no single consistent fraud direction (see LAYER3_HANDOFF.md
+      Section 7 -- this signal is primarily an A5-specific corroborator,
+      not a universal discriminator, and is weighted low accordingly).
+      If no flagged days exist, contributes 0.0 (no evidence, not
+      penalized).
+
+    WEIGHTS (default, documented judgment call -- not empirically
+    optimized, state this plainly in the paper): frac_flagged and
+    severity get the highest weight as the most direct fraud evidence;
+    CUSUM moderate (independent corroborating mechanism); calibration
+    ratio lower (slower-moving, plant-baseline-relative signal);
+    divergence lowest (narrowest-scope, A5-specific corroborator).
+    """
+    if weights is None:
+        weights = {
+            "frac_flagged": 0.30,
+            "severity": 0.30,
+            "cusum": 0.20,
+            "calibration_ratio": 0.12,
+            "divergence": 0.08,
+        }
+
+    frac_flagged_norm = _clip01(inputs.frac_flagged)
+    severity_norm = _clip01(inputs.cum_severity_frac / severity_frac_cap)
+    cusum_norm = _clip01(inputs.cusum_max_s / inputs.cusum_h) if inputs.cusum_h > 0 else 0.0
+    cr_deviation = abs(inputs.calibration_ratio - inputs.calibration_ratio_clean_baseline)
+    calibration_norm = _clip01(cr_deviation / calibration_ratio_deviation_cap)
+    divergence_norm = (
+        _clip01(abs(inputs.divergence_flagged_only) / divergence_cap)
+        if inputs.divergence_flagged_only is not None else 0.0
+    )
+
+    components = {
+        "frac_flagged": frac_flagged_norm,
+        "severity": severity_norm,
+        "cusum": cusum_norm,
+        "calibration_ratio": calibration_norm,
+        "divergence": divergence_norm,
+    }
+
+    score = 100.0 * sum(weights[k] * components[k] for k in components)
+    score = max(0.0, min(100.0, score))
+
+    band = next(name for lo, hi, name in RISK_BANDS if lo <= score < hi)
+
+    return RiskScoreResult(score=score, band=band, components=components)
+
+
+def calibrate_divergence_cap(
+    ts_table: pd.DataFrame, reference_dates, percentile: float = 0.95,
+) -> float:
+    """
+    Derives the divergence normalization cap from the CLEAN reference
+    pool (calib+test_clean) ALONE -- never from injected/labeled data.
+    This is calibration, not cosmetic scaling: the cap controls how much
+    a given divergence level contributes to the final risk score, the
+    same functional role as conformal's threshold or CUSUM's h. Deriving
+    it by looking at injected values too would risk the exact thing this
+    project has been careful to avoid everywhere else -- shaping
+    detection logic around known answers.
+
+    Uses the target percentile of |evidence_irr_divergence_pct| across
+    daylight rows in the reference window (population-level, not
+    flagged-only -- there's no "flagged day" concept within a purely
+    clean reference window; this establishes the natural clean-data
+    spread of the signal itself, which is a different, valid use of the
+    whole window, not the same dilution mistake as averaging a localized
+    signal across an unrelated background).
+    """
+    daylight = ts_table[ts_table["is_daylight"]]
+    ref_rows = daylight[pd.Series(daylight.index.date, index=daylight.index).isin(reference_dates)]
+    return float(ref_rows["evidence_irr_divergence_pct"].abs().quantile(percentile))
 
 
 def compute_daily_flag_severity_kwh(

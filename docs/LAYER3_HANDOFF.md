@@ -196,7 +196,7 @@ a failure to keep chasing with more parameter tweaks.
 
 ---
 
-## 7. 3.6 — Risk aggregation (`aggregate.py`) — in progress
+## 7. 3.6 — Risk aggregation (`aggregate.py`) — COMPLETE
 
 Five inputs per the roadmap: fraction of days flagged, cumulative
 severity (kWh), CUSUM state, calibration ratio, mean on-site/satellite
@@ -209,11 +209,87 @@ see `compute_daily_flag_severity_kwh()` and
 days, doesn't show a single clean direction across arbitrary flag types
 — it's fundamentally an A5 (weather-spoofing)-specific signal, not a
 universal fraud discriminator (matches Overview v2's own framing of it
-as primarily a Layer 4 flag-SHAP explainability feature). Include it at
-modest weight with this caveat noted; don't expect it to carry the score.
+as primarily a Layer 4 flag-SHAP explainability feature). Included at
+modest weight (0.08) with this caveat noted.
 
-**Not yet done:** the actual 0-100 weighting formula and Low/Elevated/
-High/Critical banding. Signal ranges gathered from real clean data + a
-sample of injected replicates (both plants) — see
-`gather_score_ranges.py` — before designing weights, same discipline as
-everything above.
+### The score formula
+
+`compute_risk_score()`: each of the five inputs is normalized to [0,1]
+before weighting (they arrive on wildly different scales — a fraction,
+a kWh-fraction, a CUSUM statistic, a ratio near 1.0, a percentage — the
+same scaling problem as 3.4's autoencoder inputs), then combined:
+```
+frac_flagged        weight 0.30  -- already in [0,1]
+severity             weight 0.30  -- cum_severity_frac / 0.20 cap, clipped
+cusum                weight 0.20  -- cusum_max_s / cusum_h, clipped
+calibration_ratio    weight 0.12  -- |CR - plant's OWN clean baseline| / 0.5, clipped
+divergence           weight 0.08  -- |divergence_flagged_only| / calibrated_cap, clipped
+```
+Bands: Low 0-25, Elevated 25-50, High 50-75, Critical 75-100.
+
+Weights and the severity/calibration-ratio caps are **documented
+judgment calls, not empirically optimized** — state this plainly in the
+paper (n=6 replicates/plant sampled this session is nowhere near enough
+to fit these rigorously; revisit once the full 30-replicate benchmark
+run happens, per the roadmap's evaluation phase).
+
+### Calibration ratio must be measured relative to the PLANT'S OWN clean baseline, not a universal 1.0
+
+Verified necessary, not assumed: plant_2's real clean CR is 0.897 (10.3%
+below 1.0) purely from its own physics-anchor fit characteristics (see
+Section 4 / LAYER2_HANDOFF.md Section 4) — scoring against absolute 1.0
+would make plant_2 look moderately risky even when genuinely clean.
+
+### CUSUM window-length scope limitation — found via this score's own acceptance test
+
+**First finding (bug, fixed):** initially ran CUSUM over a plant's full
+34-day real history using `h` bootstrap-calibrated for 9-day windows —
+produced a false positive on genuinely clean plant_2 data (scored 30.7,
+"Elevated"). A threshold calibrated for one window length has no valid
+guarantee applied to a longer one; a longer sequence gives the
+cumulative statistic far more chances to drift upward by chance.
+**Fix:** calibrate `h` fresh for whatever window length is actually
+being scored — `h=4.5` for the 10-day `calib`+`test_clean` clean-check
+block, `h=4.0` for 9-day replicate evaluation (matching each exactly,
+not approximated).
+
+**Second finding (real, stated limitation, NOT fixed — same treatment
+as Layer 2's online-learning module, 2.5):** this means the CUSUM
+component is only valid for the specific ~9-10 day windows it's
+calibrated for. It does NOT generalize to continuous, open-ended
+deployment monitoring (weeks/months) without either periodic window
+resets or a properly different continuous-monitoring formulation
+(average-run-length-based, not this bootstrap-FPR approach). Report this
+plainly in the paper as scoped-out, not silently absorbed into "fixed."
+
+### Divergence cap must be calibrated from clean data alone, same discipline as everything else
+
+`calibrate_divergence_cap()`: derives the normalization cap from the
+95th percentile of `|evidence_irr_divergence_pct|` across `calib`+
+`test_clean` ONLY — never by looking at injected values, even to
+"validate" the choice. A normalization cap in a composite score
+functions the same way a detection threshold does (it controls how much
+a signal level contributes to the final flag), so it gets the same
+calib-only treatment as conformal's threshold, CUSUM's `h`, and the
+autoencoder's baseline. An earlier version derived the cap by eyeballing
+clean+injected values together — correctly identified as a violation of
+this project's own evaluation-circularity discipline before being fixed.
+
+### Acceptance test (both fixes together)
+
+Real clean data, both plants, correctly lands in **Low** band:
+plant_1 = 12.1, plant_2 = 20.2 (was 30.7/"Elevated" before the CUSUM
+window fix). Injected replicates (6 sampled per plant) span Low through
+High with a sensible spread reflecting genuine per-replicate variability
+in randomly-drawn anomaly type/magnitude — not every replicate should
+score Critical, and none forced to.
+
+**Known remaining imperfection, documented not chased further:**
+plant_2's clean-block `calibration_ratio` component (0.693) is
+non-trivial because `clean_cr_baseline` is computed from the full
+34-day real dataset while the score itself is computed on just the
+10-day `calib`+`test_clean` sub-window — a small sample-size mismatch
+between the two CR estimates, not real fraud. Didn't affect the band
+classification this time; worth tightening if it does later.
+
+---

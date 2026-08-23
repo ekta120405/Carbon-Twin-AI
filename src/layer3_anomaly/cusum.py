@@ -32,6 +32,29 @@ optimism bias. n=10 is still modest; report the resulting reference
 statistics' uncertainty honestly in the paper (same standard as 3.2's
 achievable-alpha reporting), don't silently treat them as exact.
 
+SCOPE LIMITATION (stated, not silently resolved): this module's `h`
+calibration is only valid for the SPECIFIC window length it was
+calibrated for (bootstrap-resampled to that exact length). It does NOT
+generalize to continuous, open-ended monitoring -- running a 9-day-
+calibrated h over, say, a full 34-day sequence gives the cumulative
+statistic far more opportunities to drift upward by chance, silently
+inflating the real false-positive rate above whatever target_fpr was
+used at calibration time. This was found empirically (this session):
+scoring 3.6's risk score by running CUSUM over a plant's full real
+34-day history produced a false-positive-driving S_t on genuinely clean
+data. The fix used throughout this project is to calibrate h fresh for
+whatever window length is actually being evaluated (9 days, matching the
+injector's replicate structure, for all evaluation in this capstone).
+
+Real continuous deployment monitoring (weeks/months, not a fixed 9-day
+window) is NOT solved by this module as-is -- it would need either
+periodic window resets (recalibrate/restart every ~9 days) or a properly
+different continuous-monitoring formulation (average-run-length-based,
+not this bootstrap-FPR approach). This is treated the same way Layer
+2's online-learning module (2.5) was scoped and explicitly cut: stated
+here as a known, deliberate limitation, not silently absorbed into "the
+window mismatch is fixed." Report this plainly in the paper.
+
 ONE-SIDED (Overview v2 SS2.6): only accumulates evidence for persistent
 POSITIVE bias (over-claiming). A sustained negative shift (persistent
 under-generation) is a fault-channel signal, not fraud -- symmetric with
