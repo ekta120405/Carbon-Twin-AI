@@ -126,6 +126,50 @@ def flag_night_injection(df: pd.DataFrame, ac_nameplate_kw: float) -> pd.Series:
     return is_dark & (df["ac_power"] > tolerance_kw)
 
 
+def flag_stuck_sensor(df: pd.DataFrame, run_length_threshold: int = 8) -> pd.Series:
+    """
+    Deterministic guardrail for A8 (flatline / stuck-sensor replay).
+    Analogous investigation to flag_night_injection above: Layer 1 already
+    computes an `is_stuck` column (config.yaml's
+    layer1.quality.stuck_sensor_run_length=8), but it suffers the IDENTICAL
+    staleness bug -- the injector (apply_a8_flatline, taxonomy.py) only
+    modifies `ac_power`, never recomputes `is_stuck` afterward. Confirmed
+    empirically: is_stuck=False on all 29/29 rows of a real, verified
+    frozen run. Using the stored column would silently catch nothing,
+    exactly like the first exceeds_ceiling_fraud attempt for A3.
+
+    This recomputes the same "N consecutive identical DAYLIGHT values"
+    rule fresh, directly from the live ac_power column, using the same
+    threshold (8) as Layer 1's original definition.
+
+    Verified against real data, both plants:
+    - A8-injected replicates: 8/8 (plant_1), 7/7 (plant_2) days caught
+    - real clean train/calib data: 0/25 false-positive days on EITHER
+      plant -- unlike the A3 guardrail, this one has no known noise/fraud
+      overlap; a genuinely clean plant essentially never produces 8+
+      bit-identical consecutive readings, since real sensor/inverter
+      noise varies continuously.
+
+    Also caught 3.4's autoencoder missing this entirely: reconstruction
+    error on the exact labeled frozen window was well BELOW baseline
+    (not elevated at all), despite features engineered specifically to
+    target it (ac_power_diff1). Don't rely on the autoencoder for A8;
+    this deterministic check is the actual mechanism that catches it.
+
+    Returns a boolean Series, True where a stuck/frozen-value run of at
+    least run_length_threshold consecutive daylight readings is detected.
+    """
+    daylight_idx = df.index[df["is_daylight"].astype(bool)]
+    ac = df.loc[daylight_idx, "ac_power"]
+    change = ac.ne(ac.shift()).cumsum()
+    run_sizes = ac.groupby(change).transform("size")
+    stuck_mask = run_sizes >= run_length_threshold
+
+    result = pd.Series(False, index=df.index)
+    result.loc[daylight_idx] = stuck_mask
+    return result
+
+
 def compute_daily_night_injection_flag(df: pd.DataFrame, ac_nameplate_kw: float) -> pd.Series:
     """
     Day-level aggregation of flag_night_injection(): True if ANY row that
@@ -135,6 +179,12 @@ def compute_daily_night_injection_flag(df: pd.DataFrame, ac_nameplate_kw: float)
     output index so the two can be joined directly.
     """
     row_flags = flag_night_injection(df, ac_nameplate_kw)
+    return row_flags.groupby(df.index.date).any()
+
+
+def compute_daily_stuck_sensor_flag(df: pd.DataFrame, run_length_threshold: int = 8) -> pd.Series:
+    """Day-level aggregation of flag_stuck_sensor(): True if ANY row that day is part of a stuck/frozen run."""
+    row_flags = flag_stuck_sensor(df, run_length_threshold)
     return row_flags.groupby(df.index.date).any()
 
 

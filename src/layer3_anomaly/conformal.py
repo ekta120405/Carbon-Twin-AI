@@ -143,15 +143,21 @@ def flag_days(daily_r_day: pd.Series, result: ConformalResult) -> pd.Series:
     return daily_r_day > result.threshold
 
 
-def classify_day(r_day: float, result: ConformalResult, night_injection_flagged: bool = False) -> str:
+def classify_day(
+    r_day: float, result: ConformalResult,
+    night_injection_flagged: bool = False, stuck_sensor_flagged: bool = False,
+) -> str:
     """
     Layer 3.3: one-sided day classification.
-    - "flagged_night_injection": night_injection_flagged=True -> A3-style
-      fabrication detected by residual.py's flag_night_injection(). This
-      is a PARALLEL, deterministic, guaranteed path -- checked FIRST,
-      independent of r_day/threshold, because 3.1's daylight-only
-      aggregation makes r_day structurally blind to night injection (see
-      flag_night_injection's docstring for the full investigation).
+    - "flagged_night_injection": A3-style fabrication (flag_night_injection)
+    - "flagged_stuck_sensor": A8-style frozen replay (flag_stuck_sensor)
+      Both above are PARALLEL, deterministic, guaranteed paths -- checked
+      FIRST, independent of r_day/threshold. r_day's daylight-only
+      aggregation is structurally blind to A3 (residual.py docstring),
+      and 3.4's autoencoder was empirically verified NOT to catch A8 even
+      with features engineered for it (see flag_stuck_sensor docstring)
+      -- these two deterministic checks are the actual detection
+      mechanism for their respective anomaly types, not a backup.
     - "flagged_overclaim": r_day > conformal threshold -> candidate fraud
     - "fault_underclaim":  r_day < 0 -> under-generation, operational
       fault channel (inverter outage, soiling, curtailment) -- NEVER a
@@ -174,6 +180,8 @@ def classify_day(r_day: float, result: ConformalResult, night_injection_flagged:
     """
     if night_injection_flagged:
         return "flagged_night_injection"
+    if stuck_sensor_flagged:
+        return "flagged_stuck_sensor"
     if r_day > result.threshold:
         return "flagged_overclaim"
     elif r_day < 0:
@@ -184,19 +192,25 @@ def classify_day(r_day: float, result: ConformalResult, night_injection_flagged:
 def classify_days(
     daily_r_day: pd.Series, result: ConformalResult,
     night_injection_flagged: pd.Series | None = None,
+    stuck_sensor_flagged: pd.Series | None = None,
 ) -> pd.Series:
     """
-    Vectorized wrapper around classify_day. night_injection_flagged, if
-    given, must share daily_r_day's index (e.g. from
-    residual.py's compute_daily_night_injection_flag()) -- defaults to
-    all-False (no night-injection check applied) if omitted, for
-    backward compatibility with callers that haven't wired it in yet.
+    Vectorized wrapper around classify_day. Both flag series, if given,
+    must share daily_r_day's index (e.g. from residual.py's
+    compute_daily_night_injection_flag() / compute_daily_stuck_sensor_flag())
+    -- default to all-False if omitted, for backward compatibility.
     """
     if night_injection_flagged is None:
         night_injection_flagged = pd.Series(False, index=daily_r_day.index)
+    if stuck_sensor_flagged is None:
+        stuck_sensor_flagged = pd.Series(False, index=daily_r_day.index)
     return pd.Series(
         [
-            classify_day(r, result, bool(night_injection_flagged.get(idx, False)))
+            classify_day(
+                r, result,
+                bool(night_injection_flagged.get(idx, False)),
+                bool(stuck_sensor_flagged.get(idx, False)),
+            )
             for idx, r in daily_r_day.items()
         ],
         index=daily_r_day.index,
