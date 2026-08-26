@@ -123,8 +123,22 @@ layer4:
     explain_flagged_only: true    # full-dataset SHAP is unnecessary
     max_flags_explained: 500
   carbon:
-    grid_emission_factor_tco2_per_mwh: 0.79   # CEA India — cite the exact edition
-    carbon_price_usd_per_tco2: 10.0
+    grid_emission_factor_tco2_per_mwh: 0.7383   # CEA CO2 Baseline Database v21.0 (Nov 2025),
+                                                  # Combined Margin, FY2024-25 — the variant CEA
+                                                  # itself specifies for RE project emission-reduction
+                                                  # crediting, NOT the WAEF (0.7117) used for corporate
+                                                  # Scope 2 reporting. Vintage mismatch vs. the dataset's
+                                                  # 2020 generation period is a documented simplification,
+                                                  # not an oversight — see paper §[carbon accounting].
+    carbon_price_usd_per_tco2: 5.00   # Low end of the $4-6/tCO2e range typical for grid-connected
+                                        # renewable-energy avoidance credits specifically (NOT the
+                                        # market's oft-cited $6.34 blended average, which is dominated
+                                        # by higher-priced removal/durability credit types unrelated
+                                        # to this project). Reflects the documented EMDE pricing
+                                        # discount (~28% below advanced-economy credits) applicable
+                                        # to an India-origin project. Sources: Ecosystem Marketplace
+                                        # State of the VCM 2025; Emsurge project-listing dataset via
+                                        # carboncredits.com (accessed 2026).
   severity_weights:
     magnitude: 0.4
     confidence: 0.2
