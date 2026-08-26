@@ -51,6 +51,7 @@ import pandas as pd
 
 from src.layer3_anomaly.residual import (
     NIGHT_INJECTION_DARK_GHI_THRESHOLD,
+    NIGHT_INJECTION_TOLERANCE_FRAC,
     flag_stuck_sensor,
 )
 from src.layer3_anomaly.aggregate import compute_night_injection_severity_kwh
@@ -209,7 +210,7 @@ def explain_night_injection_flag(date, day_ts_table: pd.DataFrame, ac_nameplate_
         )
     else:
         worst = dark_rows.loc[dark_rows["ac_power"].idxmax()]
-        tolerance_kw = 0.015 * ac_nameplate_kw
+        tolerance_kw = NIGHT_INJECTION_TOLERANCE_FRAC * ac_nameplate_kw
         text = (
             f"Flagged: {worst['ac_power']:.1f} kW claimed at "
             f"{worst.name} where twin_clearsky_ghi={worst['twin_clearsky_ghi']:.3f} W/m^2 "
