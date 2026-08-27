@@ -103,7 +103,20 @@ weaker, more overfit one (`LAYER2_HANDOFF.md` §4: plant_2 underperforms
 physics-only in clear/partly-cloudy regimes). plant_1's twin transplanted
 onto plant_2 degrades more gracefully (recall drops modestly, specificity
 unchanged — the one hard-negative flagged, `2020-06-08`, is caught by the
-twin-independent night-injection guardrail in both cases).
+twin-independent night-injection guardrail in both cases, verified by
+joining both runs' rows and confirming every flagged instance is that
+same guardrail-driven day, not a coincidence).
+
+**Note on plant_1's AUC-PR rising (0.718→0.760) despite precision/
+specificity collapsing:** not a contradiction. AUC-PR is threshold-
+independent (integrates precision across every cutoff of the continuous
+`severity_kwh` ranking); precision/specificity are read at the one
+operating threshold `classify_days()` actually uses. Verified by direct
+recomputation and by checking mean `severity_kwh` is still higher for
+positive than negative days under the cross-twin (77,409 vs. 44,567,
+narrower than own-twin's 32,012 vs. 257 but still real separation) — the
+underlying ranking retains real power even though the specific
+classification threshold is badly miscalibrated for this twin/plant pair.
 
 ---
 
@@ -119,6 +132,10 @@ twin-independent night-injection guardrail in both cases).
 On-site input is more accurate (physically co-located vs. satellite's
 ~110km grid average) — quantifies the accuracy cost paid for tamper-
 resistance, the architectural reason satellite-only is used in production.
+The satellite R² column here and (b)'s PI-GBQR R² column are the SAME
+pre-existing number, read from the same file (`{plant}_twin_metrics.json`,
+untouched by Task 7 — confirmed via `git log`), not two independent
+computations; only the on-site column is freshly trained in this ablation.
 
 ### (b) With/without physics anchor (pulled from Layer 2, not recomputed)
 
@@ -127,6 +144,13 @@ resistance, the architectural reason satellite-only is used in production.
 | plant_1 | 0.866 | 0.835 |
 | plant_2 | 0.681 | **0.751** (twin underperforms physics-only — matches `LAYER2_HANDOFF.md` §4) |
 
+plant_2's pooled 0.681 is legitimately higher than its own regime-specific
+test R² elsewhere in the project (clear 0.307, partly-cloudy 0.140) — R²
+does not decompose as an n-weighted average across regimes; the overcast
+regime (n=239/480, R²=0.749, near-zero variance) contributes little
+absolute error while the harder clear/partly-cloudy regimes hold most of
+the real variance. Not a computation inconsistency.
+
 ### (c) Conformal vs. fixed 2σ threshold, pooled
 
 | | Precision | Recall | F1 | AUC-PR | Hard-neg. specificity |
@@ -134,7 +158,13 @@ resistance, the architectural reason satellite-only is used in production.
 | Conformal | 0.801 | 0.585 | 0.677 | 0.725 | 0.920 |
 | Fixed 2σ | 0.720 | 0.373 | 0.491 | 0.584 | 0.920 |
 
-Conformal wins clearly on recall/F1/AUC-PR at equal specificity.
+Conformal wins clearly on recall/F1/AUC-PR. The identical specificity
+(0.920, both) was investigated, not assumed: every hard-negative false
+positive under BOTH thresholds is guardrail-driven (`flagged_stuck_sensor`
+/ `flagged_night_injection`), with identical `r_day` values in every case
+— zero hard-negative false positives in this sample come from the
+magnitude test at all, on either plant, so this specific slice literally
+cannot distinguish the two thresholds. See `docs/TASK7_HANDOFF.md` §2.5.
 
 ### (d) One-sided vs. two-sided, pooled (conformal magnitude test isolated, guardrails excluded)
 
@@ -146,6 +176,14 @@ Conformal wins clearly on recall/F1/AUC-PR at equal specificity.
 Two-sided's specificity cost is concentrated on `N4_sensor_dropout`
 (plant_1: 1.0 → 0.714, 4/14 new false positives) — real but narrower than
 a uniform drop across all under-generation hard negatives.
+
+Vs. §1's production numbers (precision 0.801, recall 0.585, specificity
+0.920): isolating the conformal test alone (removing guardrails) gives
+precision 0.812 (marginally *higher*), recall 0.425 (meaningfully
+*lower* — the guardrails' A3/A8 perfect-recall detections aren't credited
+here), and specificity 0.971 (*higher* — the guardrail-driven hard-negative
+false positives are also removed). Removing the guardrails costs recall
+specifically, not a blanket "everything is lower."
 
 ### (e) Online vs. batch twin — NOT built
 
@@ -167,6 +205,19 @@ First-ever real autoencoder training run in this project (n/a before Task
 far too trigger-happy for standalone deployment (specificity 0.25) —
 explains why conformal is the primary detector and autoencoder stays a
 secondary/ensemble-only signal.
+
+**Threshold definition used (stated explicitly, since it's doing real work
+in the 0.246 result):** per-timestep reconstruction error (never day-mean/
+day-max), threshold = 95th percentile over the pooled, held-out `calib`+
+`test_clean` error (model trained on `train` only), day flagged if **any**
+single daylight timestep exceeds it. This "any one timestep" rule is a
+much more permissive trigger than the daily-*aggregate* conformal test and
+is the most likely driver of the low specificity — a stricter rule (e.g.
+requiring a run of consecutive elevated timesteps) was not tried. Read
+this as a finding about this specific threshold choice, not a fully
+threshold-independent statement that autoencoders can't work here — though
+it's consistent either way with the architecture's framing of the
+autoencoder as a secondary signal. See `docs/TASK7_HANDOFF.md` §3.
 
 ### (g) Leave-one-plant-out — see §3 above, not duplicated
 
