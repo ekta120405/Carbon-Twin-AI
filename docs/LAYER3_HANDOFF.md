@@ -137,6 +137,27 @@ available this session is not enough to derive a reliable
 discriminator — this is precisely what the full 30-replicate benchmark,
 Task 7, is for).
 
+**UPDATE (Task 7.5, full 30-replicate × 2-plant scale — see
+`src/evaluation/stuck_sensor_fix.py` / `reports/tables/
+stuck_sensor_fix_reattempt.json`):** re-attempted with a different,
+better-motivated discriminator — does the strict physics ceiling
+(`physics_ceiling_fraud_kw`) ever drop *below* the frozen value during the
+run? (A legitimate curtailment cap is set below capacity and only clips
+values that would otherwise exceed it, so the ceiling should stay ≥ the
+capped value throughout a real N3 run; a frozen sensor reading has no such
+guarantee.) At n=15 real A8 instances and n=12 real N3 instances (both
+plants pooled, still not literally "tens" but far past the original n=1-2),
+**N3 specificity was completely unchanged (0.583 → 0.583, same 7/12)**
+while A8 recall dropped (15/15 → 13/15). The ceiling-dip condition turned
+out to hold just as often on the false-positive N3 runs as on genuine A8
+runs — plausibly because a cloud passing during part of a curtailment
+window can drop the physical ceiling below the cap value too, breaking the
+"ceiling stays above the cap throughout" assumption the idea depended on.
+**Reverted again, for a different reason than the first attempt** (zero
+benefit this time, rather than a benefit traded for a large regression).
+The stuck-sensor/N3-curtailment collision remains a live, undoctored
+limitation — no further fix attempted in this project.
+
 Both `flag_night_injection` and `flag_stuck_sensor` are wired into
 `conformal.py`'s `classify_day`/`classify_days` as parallel, guaranteed
 paths, checked BEFORE the conformal threshold.
