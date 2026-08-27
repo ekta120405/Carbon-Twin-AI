@@ -24,7 +24,7 @@ dashboard/pages/1_Project_Risk_Overview.py        view 1 (3.6's score/band)
 dashboard/pages/2_Expected_vs_Claimed.py          view 2 (time series + flags)
 dashboard/pages/3_Flag_Detail.py                  view 3 (4.1/4.2 panels, 4.5 ranking, 4.3 carbon)
 dashboard/pages/4_Carbon_Exposure.py              view 4 (4.3 project/period summary)
-dashboard/pages/5_Evaluation.py                   view 5 (explicit Task-7 placeholder + informal check)
+dashboard/pages/5_Evaluation.py                   view 5 (Task 7's real full-scale results, see SS3 below)
 ```
 
 Run with `streamlit run dashboard/app.py` from the repo root with `.venv`
@@ -184,17 +184,34 @@ requirement that these appear "not just computed silently." Do not move
 this below the fold or make it collapsed-by-default.
 
 ### View 5 — Evaluation
-**Intentional placeholder**, per `docs/LAYER4_ROADMAP.md` §4.6 and §6 — the
-formal Task 7 benchmark (precision/recall/F1/AUC-PR, hard-negative
-specificity, the MDO curve) is out of scope for this build and is NOT
-computed here. What IS here: an informal, single-replicate comparison
-against `data/ground_truth/{plant}_labels.parquet` for whichever injected
-replicate is currently selected — a convenience for demos, explicitly
-captioned as not statistically meaningful and not a reproduction of the
-project's actual bounded hard-negative check (LAYER3_HANDOFF.md §8, 28
-examples, specificity 0.929). **Do not let this page's ad hoc numbers get
-quoted anywhere as if they were the Task 7 result** — they're one replicate,
-not the 30-replicate sweep.
+**UPDATED (Task 7.6) — no longer a placeholder.** The original single-
+replicate ad hoc comparison was fully replaced (not merged) with Task 7's
+real full-scale results, per `TASK7_FULL_ROADMAP_FOR_CLAUDE_CODE.md` §7.6's
+explicit instruction. Five tabs, each loading directly from a committed
+`reports/tables/*.json` file — this page performs no new computation:
+1. **7.1 Full Benchmark** — precision/recall/F1/AUC-PR, per-anomaly-type
+   recall, per-hard-negative-type specificity, toggleable between the
+   production `classify_days()` flag and the CUSUM-inclusive definition
+   (see `src/evaluation/benchmark.py`'s methodology note for why both are
+   shown, never just one — CUSUM is architecturally separate from
+   `classify_days()` but is Overview v2's stated A6 mechanism).
+2. **7.2 MDO Curve** — rebuilt live from `mdo_curve.json`'s raw numbers via
+   Plotly, **never from `reports/figures/mdo_curve.png`** — that PNG is
+   `.gitignore`'d (regenerable output, same convention as `reports/figures/`
+   generally) and won't exist on a fresh checkout; depending on it would
+   silently break the tab for anyone who hasn't locally re-run
+   `src/evaluation/mdo_curve.py`.
+3. **7.3 Leave-One-Plant-Out** — own-twin vs. cross-twin comparison per plant.
+4. **7.4 Ablations** — all six built ablations (a, b, c, d, f, g) plus (e)'s
+   scoped-out note, rendered from `ablations.json`.
+5. **7.5 Stuck-Sensor Fix** — the physics-ceiling discriminator re-attempt's
+   decision and before/after numbers, from `stuck_sensor_fix_reattempt.json`.
+
+Not tied to the sidebar's plant/data-source selection (the sidebar stays
+visible for navigation consistency only) — these are pooled, full-scale
+results across all 30 replicates × both plants, a different scope than the
+other four views' single-instance drill-down. Missing table files raise an
+explicit `st.error` naming the script to run, never a silent placeholder.
 
 ---
 
@@ -239,9 +256,9 @@ HTTP status code.
 - **No authentication / access control** — this is a local demo/audit tool,
   not a deployed service. Don't reuse this app.py as-is behind a public URL
   without adding one.
-- View 5 is a placeholder by design (§3 above) — this is the one piece of
-  the roadmap's five-view spec that is knowingly incomplete, matching
-  `LAYER4_ROADMAP.md` §4.6's own instruction not to block on it.
+- View 5 was a placeholder by design at initial 4.6 build time (matching
+  `LAYER4_ROADMAP.md` §4.6's own instruction not to block on it) — **now
+  filled in with Task 7's real results, see §3 above.**
 
 ---
 
