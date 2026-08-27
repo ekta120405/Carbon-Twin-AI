@@ -1,0 +1,725 @@
+{
+  "methodology_note": "Every metrics block is reported under TWO detection definitions: 'production_flag_only' (Layer 3.3's classify_days() flag_type -- overclaim/night-injection/stuck-sensor -- what the dashboard and evidence bundles actually use) and 'including_cusum' (also counts CUSUM's own day-level flag, which is architecturally SEPARATE from classify_days() -- conformal.py never consults it -- but is Overview v2 SS3.5's stated intended mechanism for A6_slow_drift specifically; reporting only the production flag would silently understate A6 recall). A day is 'detected' if flagged by ANY counted mechanism, regardless of whether that mechanism 'matches' the injected anomaly. Per-type recall is independently well-defined; per-type precision reuses a SHARED clean+hard-negative false-positive pool across all types (false positives have no injected type of their own) -- read precision_i as 'precision vs. non-fraud days for this type specifically', not a fully independent per-type statistic. AUC-PR ranks by severity_kwh (flag-type-aware magnitude, unaffected by the CUSUM question) against binary is_positive labels.",
+  "per_plant": {
+    "plant_1": {
+      "production_flag_only": {
+        "overall": {
+          "n": 270,
+          "n_positive": 95,
+          "n_negative": 175,
+          "tp": 54,
+          "fp": 5,
+          "fn": 41,
+          "tn": 170,
+          "precision": 0.9152542372881356,
+          "recall": 0.5684210526315789,
+          "f1": 0.7012987012987013,
+          "auc_pr": 0.7179172822959866
+        },
+        "per_type": {
+          "A1_constant_overclaim": {
+            "n": 16,
+            "n_detected": 14,
+            "precision": 0.7368421052631579,
+            "recall": 0.875,
+            "f1": 0.7999999999999999
+          },
+          "A2_peak_hour_shaving": {
+            "n": 14,
+            "n_detected": 4,
+            "precision": 0.4444444444444444,
+            "recall": 0.2857142857142857,
+            "f1": 0.34782608695652173
+          },
+          "A3_night_injection": {
+            "n": 11,
+            "n_detected": 11,
+            "precision": 0.6875,
+            "recall": 1.0,
+            "f1": 0.8148148148148148
+          },
+          "A4_day_swap": {
+            "n": 14,
+            "n_detected": 1,
+            "precision": 0.16666666666666666,
+            "recall": 0.07142857142857142,
+            "f1": 0.1
+          },
+          "A5_weather_spoofing": {
+            "n": 15,
+            "n_detected": 11,
+            "precision": 0.6875,
+            "recall": 0.7333333333333333,
+            "f1": 0.7096774193548386
+          },
+          "A6_slow_drift": {
+            "n": 7,
+            "n_detected": 1,
+            "precision": 0.16666666666666666,
+            "recall": 0.14285714285714285,
+            "f1": 0.15384615384615383
+          },
+          "A7_capacity_violation": {
+            "n": 10,
+            "n_detected": 4,
+            "precision": 0.4444444444444444,
+            "recall": 0.4,
+            "f1": 0.4210526315789474
+          },
+          "A8_flatline": {
+            "n": 8,
+            "n_detected": 8,
+            "precision": 0.6153846153846154,
+            "recall": 1.0,
+            "f1": 0.761904761904762
+          }
+        },
+        "shared_fp_pool": {
+          "shared_fp_pool_flagged": 5,
+          "shared_fp_pool_total": 175
+        },
+        "hard_negative_per_type": {
+          "N1_inverter_outage": {
+            "n": 19,
+            "n_correctly_unflagged": 19,
+            "specificity": 1.0
+          },
+          "N2_soiling_loss": {
+            "n": 12,
+            "n_correctly_unflagged": 12,
+            "specificity": 1.0
+          },
+          "N3_curtailment": {
+            "n": 9,
+            "n_correctly_unflagged": 4,
+            "specificity": 0.4444444444444444
+          },
+          "N4_sensor_dropout": {
+            "n": 14,
+            "n_correctly_unflagged": 14,
+            "specificity": 1.0
+          },
+          "N5_heavy_cloud_day": {
+            "n": 9,
+            "n_correctly_unflagged": 9,
+            "specificity": 1.0
+          },
+          "N6_extreme_heat": {
+            "n": 13,
+            "n_correctly_unflagged": 13,
+            "specificity": 1.0
+          },
+          "N7_cloud_enhancement": {
+            "n": 12,
+            "n_correctly_unflagged": 12,
+            "specificity": 1.0
+          }
+        },
+        "hard_negative_overall": {
+          "n": 88,
+          "n_correctly_unflagged": 83,
+          "specificity": 0.9431818181818182
+        }
+      },
+      "including_cusum": {
+        "overall": {
+          "n": 270,
+          "n_positive": 95,
+          "n_negative": 175,
+          "tp": 58,
+          "fp": 18,
+          "fn": 37,
+          "tn": 157,
+          "precision": 0.7631578947368421,
+          "recall": 0.6105263157894737,
+          "f1": 0.6783625730994152,
+          "auc_pr": 0.7179172822959866
+        },
+        "per_type": {
+          "A1_constant_overclaim": {
+            "n": 16,
+            "n_detected": 14,
+            "precision": 0.4375,
+            "recall": 0.875,
+            "f1": 0.5833333333333334
+          },
+          "A2_peak_hour_shaving": {
+            "n": 14,
+            "n_detected": 6,
+            "precision": 0.25,
+            "recall": 0.42857142857142855,
+            "f1": 0.3157894736842105
+          },
+          "A3_night_injection": {
+            "n": 11,
+            "n_detected": 11,
+            "precision": 0.3793103448275862,
+            "recall": 1.0,
+            "f1": 0.5499999999999999
+          },
+          "A4_day_swap": {
+            "n": 14,
+            "n_detected": 2,
+            "precision": 0.1,
+            "recall": 0.14285714285714285,
+            "f1": 0.11764705882352941
+          },
+          "A5_weather_spoofing": {
+            "n": 15,
+            "n_detected": 11,
+            "precision": 0.3793103448275862,
+            "recall": 0.7333333333333333,
+            "f1": 0.5
+          },
+          "A6_slow_drift": {
+            "n": 7,
+            "n_detected": 2,
+            "precision": 0.1,
+            "recall": 0.2857142857142857,
+            "f1": 0.14814814814814817
+          },
+          "A7_capacity_violation": {
+            "n": 10,
+            "n_detected": 4,
+            "precision": 0.18181818181818182,
+            "recall": 0.4,
+            "f1": 0.25000000000000006
+          },
+          "A8_flatline": {
+            "n": 8,
+            "n_detected": 8,
+            "precision": 0.3076923076923077,
+            "recall": 1.0,
+            "f1": 0.47058823529411764
+          }
+        },
+        "shared_fp_pool": {
+          "shared_fp_pool_flagged": 18,
+          "shared_fp_pool_total": 175
+        },
+        "hard_negative_per_type": {
+          "N1_inverter_outage": {
+            "n": 19,
+            "n_correctly_unflagged": 18,
+            "specificity": 0.9473684210526315
+          },
+          "N2_soiling_loss": {
+            "n": 12,
+            "n_correctly_unflagged": 10,
+            "specificity": 0.8333333333333334
+          },
+          "N3_curtailment": {
+            "n": 9,
+            "n_correctly_unflagged": 4,
+            "specificity": 0.4444444444444444
+          },
+          "N4_sensor_dropout": {
+            "n": 14,
+            "n_correctly_unflagged": 14,
+            "specificity": 1.0
+          },
+          "N5_heavy_cloud_day": {
+            "n": 9,
+            "n_correctly_unflagged": 7,
+            "specificity": 0.7777777777777778
+          },
+          "N6_extreme_heat": {
+            "n": 13,
+            "n_correctly_unflagged": 13,
+            "specificity": 1.0
+          },
+          "N7_cloud_enhancement": {
+            "n": 12,
+            "n_correctly_unflagged": 11,
+            "specificity": 0.9166666666666666
+          }
+        },
+        "hard_negative_overall": {
+          "n": 88,
+          "n_correctly_unflagged": 77,
+          "specificity": 0.875
+        }
+      }
+    },
+    "plant_2": {
+      "production_flag_only": {
+        "overall": {
+          "n": 270,
+          "n_positive": 98,
+          "n_negative": 172,
+          "tp": 59,
+          "fp": 23,
+          "fn": 39,
+          "tn": 149,
+          "precision": 0.7195121951219512,
+          "recall": 0.6020408163265306,
+          "f1": 0.6555555555555556,
+          "auc_pr": 0.7319057510936015
+        },
+        "per_type": {
+          "A1_constant_overclaim": {
+            "n": 13,
+            "n_detected": 6,
+            "precision": 0.20689655172413793,
+            "recall": 0.46153846153846156,
+            "f1": 0.28571428571428575
+          },
+          "A2_peak_hour_shaving": {
+            "n": 13,
+            "n_detected": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": null
+          },
+          "A3_night_injection": {
+            "n": 5,
+            "n_detected": 5,
+            "precision": 0.17857142857142858,
+            "recall": 1.0,
+            "f1": 0.30303030303030304
+          },
+          "A4_day_swap": {
+            "n": 17,
+            "n_detected": 17,
+            "precision": 0.425,
+            "recall": 1.0,
+            "f1": 0.5964912280701754
+          },
+          "A5_weather_spoofing": {
+            "n": 15,
+            "n_detected": 9,
+            "precision": 0.28125,
+            "recall": 0.6,
+            "f1": 0.3829787234042553
+          },
+          "A6_slow_drift": {
+            "n": 11,
+            "n_detected": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": null
+          },
+          "A7_capacity_violation": {
+            "n": 17,
+            "n_detected": 15,
+            "precision": 0.39473684210526316,
+            "recall": 0.8823529411764706,
+            "f1": 0.5454545454545454
+          },
+          "A8_flatline": {
+            "n": 7,
+            "n_detected": 7,
+            "precision": 0.23333333333333334,
+            "recall": 1.0,
+            "f1": 0.37837837837837834
+          }
+        },
+        "shared_fp_pool": {
+          "shared_fp_pool_flagged": 23,
+          "shared_fp_pool_total": 172
+        },
+        "hard_negative_per_type": {
+          "N1_inverter_outage": {
+            "n": 9,
+            "n_correctly_unflagged": 9,
+            "specificity": 1.0
+          },
+          "N2_soiling_loss": {
+            "n": 10,
+            "n_correctly_unflagged": 8,
+            "specificity": 0.8
+          },
+          "N3_curtailment": {
+            "n": 3,
+            "n_correctly_unflagged": 3,
+            "specificity": 1.0
+          },
+          "N4_sensor_dropout": {
+            "n": 21,
+            "n_correctly_unflagged": 17,
+            "specificity": 0.8095238095238095
+          },
+          "N5_heavy_cloud_day": {
+            "n": 14,
+            "n_correctly_unflagged": 13,
+            "specificity": 0.9285714285714286
+          },
+          "N6_extreme_heat": {
+            "n": 13,
+            "n_correctly_unflagged": 12,
+            "specificity": 0.9230769230769231
+          },
+          "N7_cloud_enhancement": {
+            "n": 17,
+            "n_correctly_unflagged": 16,
+            "specificity": 0.9411764705882353
+          }
+        },
+        "hard_negative_overall": {
+          "n": 87,
+          "n_correctly_unflagged": 78,
+          "specificity": 0.896551724137931
+        }
+      },
+      "including_cusum": {
+        "overall": {
+          "n": 270,
+          "n_positive": 98,
+          "n_negative": 172,
+          "tp": 59,
+          "fp": 27,
+          "fn": 39,
+          "tn": 145,
+          "precision": 0.686046511627907,
+          "recall": 0.6020408163265306,
+          "f1": 0.641304347826087,
+          "auc_pr": 0.7319057510936015
+        },
+        "per_type": {
+          "A1_constant_overclaim": {
+            "n": 13,
+            "n_detected": 6,
+            "precision": 0.18181818181818182,
+            "recall": 0.46153846153846156,
+            "f1": 0.26086956521739135
+          },
+          "A2_peak_hour_shaving": {
+            "n": 13,
+            "n_detected": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": null
+          },
+          "A3_night_injection": {
+            "n": 5,
+            "n_detected": 5,
+            "precision": 0.15625,
+            "recall": 1.0,
+            "f1": 0.2702702702702703
+          },
+          "A4_day_swap": {
+            "n": 17,
+            "n_detected": 17,
+            "precision": 0.38636363636363635,
+            "recall": 1.0,
+            "f1": 0.5573770491803279
+          },
+          "A5_weather_spoofing": {
+            "n": 15,
+            "n_detected": 9,
+            "precision": 0.25,
+            "recall": 0.6,
+            "f1": 0.35294117647058826
+          },
+          "A6_slow_drift": {
+            "n": 11,
+            "n_detected": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": null
+          },
+          "A7_capacity_violation": {
+            "n": 17,
+            "n_detected": 15,
+            "precision": 0.35714285714285715,
+            "recall": 0.8823529411764706,
+            "f1": 0.5084745762711864
+          },
+          "A8_flatline": {
+            "n": 7,
+            "n_detected": 7,
+            "precision": 0.20588235294117646,
+            "recall": 1.0,
+            "f1": 0.34146341463414637
+          }
+        },
+        "shared_fp_pool": {
+          "shared_fp_pool_flagged": 27,
+          "shared_fp_pool_total": 172
+        },
+        "hard_negative_per_type": {
+          "N1_inverter_outage": {
+            "n": 9,
+            "n_correctly_unflagged": 9,
+            "specificity": 1.0
+          },
+          "N2_soiling_loss": {
+            "n": 10,
+            "n_correctly_unflagged": 7,
+            "specificity": 0.7
+          },
+          "N3_curtailment": {
+            "n": 3,
+            "n_correctly_unflagged": 3,
+            "specificity": 1.0
+          },
+          "N4_sensor_dropout": {
+            "n": 21,
+            "n_correctly_unflagged": 17,
+            "specificity": 0.8095238095238095
+          },
+          "N5_heavy_cloud_day": {
+            "n": 14,
+            "n_correctly_unflagged": 13,
+            "specificity": 0.9285714285714286
+          },
+          "N6_extreme_heat": {
+            "n": 13,
+            "n_correctly_unflagged": 12,
+            "specificity": 0.9230769230769231
+          },
+          "N7_cloud_enhancement": {
+            "n": 17,
+            "n_correctly_unflagged": 16,
+            "specificity": 0.9411764705882353
+          }
+        },
+        "hard_negative_overall": {
+          "n": 87,
+          "n_correctly_unflagged": 77,
+          "specificity": 0.8850574712643678
+        }
+      }
+    }
+  },
+  "pooled": {
+    "production_flag_only": {
+      "overall": {
+        "n": 540,
+        "n_positive": 193,
+        "n_negative": 347,
+        "tp": 113,
+        "fp": 28,
+        "fn": 80,
+        "tn": 319,
+        "precision": 0.8014184397163121,
+        "recall": 0.5854922279792746,
+        "f1": 0.6766467065868264,
+        "auc_pr": 0.7250891988073243
+      },
+      "per_type": {
+        "A1_constant_overclaim": {
+          "n": 29,
+          "n_detected": 20,
+          "precision": 0.4166666666666667,
+          "recall": 0.6896551724137931,
+          "f1": 0.5194805194805195
+        },
+        "A2_peak_hour_shaving": {
+          "n": 27,
+          "n_detected": 4,
+          "precision": 0.125,
+          "recall": 0.14814814814814814,
+          "f1": 0.13559322033898305
+        },
+        "A3_night_injection": {
+          "n": 16,
+          "n_detected": 16,
+          "precision": 0.36363636363636365,
+          "recall": 1.0,
+          "f1": 0.5333333333333333
+        },
+        "A4_day_swap": {
+          "n": 31,
+          "n_detected": 18,
+          "precision": 0.391304347826087,
+          "recall": 0.5806451612903226,
+          "f1": 0.4675324675324675
+        },
+        "A5_weather_spoofing": {
+          "n": 30,
+          "n_detected": 20,
+          "precision": 0.4166666666666667,
+          "recall": 0.6666666666666666,
+          "f1": 0.5128205128205129
+        },
+        "A6_slow_drift": {
+          "n": 18,
+          "n_detected": 1,
+          "precision": 0.034482758620689655,
+          "recall": 0.05555555555555555,
+          "f1": 0.0425531914893617
+        },
+        "A7_capacity_violation": {
+          "n": 27,
+          "n_detected": 19,
+          "precision": 0.40425531914893614,
+          "recall": 0.7037037037037037,
+          "f1": 0.5135135135135135
+        },
+        "A8_flatline": {
+          "n": 15,
+          "n_detected": 15,
+          "precision": 0.3488372093023256,
+          "recall": 1.0,
+          "f1": 0.5172413793103449
+        }
+      },
+      "shared_fp_pool": {
+        "shared_fp_pool_flagged": 28,
+        "shared_fp_pool_total": 347
+      },
+      "hard_negative_per_type": {
+        "N1_inverter_outage": {
+          "n": 28,
+          "n_correctly_unflagged": 28,
+          "specificity": 1.0
+        },
+        "N2_soiling_loss": {
+          "n": 22,
+          "n_correctly_unflagged": 20,
+          "specificity": 0.9090909090909091
+        },
+        "N3_curtailment": {
+          "n": 12,
+          "n_correctly_unflagged": 7,
+          "specificity": 0.5833333333333334
+        },
+        "N4_sensor_dropout": {
+          "n": 35,
+          "n_correctly_unflagged": 31,
+          "specificity": 0.8857142857142857
+        },
+        "N5_heavy_cloud_day": {
+          "n": 23,
+          "n_correctly_unflagged": 22,
+          "specificity": 0.9565217391304348
+        },
+        "N6_extreme_heat": {
+          "n": 26,
+          "n_correctly_unflagged": 25,
+          "specificity": 0.9615384615384616
+        },
+        "N7_cloud_enhancement": {
+          "n": 29,
+          "n_correctly_unflagged": 28,
+          "specificity": 0.9655172413793104
+        }
+      },
+      "hard_negative_overall": {
+        "n": 175,
+        "n_correctly_unflagged": 161,
+        "specificity": 0.92
+      }
+    },
+    "including_cusum": {
+      "overall": {
+        "n": 540,
+        "n_positive": 193,
+        "n_negative": 347,
+        "tp": 117,
+        "fp": 45,
+        "fn": 76,
+        "tn": 302,
+        "precision": 0.7222222222222222,
+        "recall": 0.6062176165803109,
+        "f1": 0.6591549295774648,
+        "auc_pr": 0.7250891988073243
+      },
+      "per_type": {
+        "A1_constant_overclaim": {
+          "n": 29,
+          "n_detected": 20,
+          "precision": 0.3076923076923077,
+          "recall": 0.6896551724137931,
+          "f1": 0.4255319148936171
+        },
+        "A2_peak_hour_shaving": {
+          "n": 27,
+          "n_detected": 6,
+          "precision": 0.11764705882352941,
+          "recall": 0.2222222222222222,
+          "f1": 0.15384615384615383
+        },
+        "A3_night_injection": {
+          "n": 16,
+          "n_detected": 16,
+          "precision": 0.26229508196721313,
+          "recall": 1.0,
+          "f1": 0.41558441558441556
+        },
+        "A4_day_swap": {
+          "n": 31,
+          "n_detected": 19,
+          "precision": 0.296875,
+          "recall": 0.6129032258064516,
+          "f1": 0.39999999999999997
+        },
+        "A5_weather_spoofing": {
+          "n": 30,
+          "n_detected": 20,
+          "precision": 0.3076923076923077,
+          "recall": 0.6666666666666666,
+          "f1": 0.42105263157894735
+        },
+        "A6_slow_drift": {
+          "n": 18,
+          "n_detected": 2,
+          "precision": 0.0425531914893617,
+          "recall": 0.1111111111111111,
+          "f1": 0.061538461538461535
+        },
+        "A7_capacity_violation": {
+          "n": 27,
+          "n_detected": 19,
+          "precision": 0.296875,
+          "recall": 0.7037037037037037,
+          "f1": 0.4175824175824176
+        },
+        "A8_flatline": {
+          "n": 15,
+          "n_detected": 15,
+          "precision": 0.25,
+          "recall": 1.0,
+          "f1": 0.4
+        }
+      },
+      "shared_fp_pool": {
+        "shared_fp_pool_flagged": 45,
+        "shared_fp_pool_total": 347
+      },
+      "hard_negative_per_type": {
+        "N1_inverter_outage": {
+          "n": 28,
+          "n_correctly_unflagged": 27,
+          "specificity": 0.9642857142857143
+        },
+        "N2_soiling_loss": {
+          "n": 22,
+          "n_correctly_unflagged": 17,
+          "specificity": 0.7727272727272727
+        },
+        "N3_curtailment": {
+          "n": 12,
+          "n_correctly_unflagged": 7,
+          "specificity": 0.5833333333333334
+        },
+        "N4_sensor_dropout": {
+          "n": 35,
+          "n_correctly_unflagged": 31,
+          "specificity": 0.8857142857142857
+        },
+        "N5_heavy_cloud_day": {
+          "n": 23,
+          "n_correctly_unflagged": 20,
+          "specificity": 0.8695652173913043
+        },
+        "N6_extreme_heat": {
+          "n": 26,
+          "n_correctly_unflagged": 25,
+          "specificity": 0.9615384615384616
+        },
+        "N7_cloud_enhancement": {
+          "n": 29,
+          "n_correctly_unflagged": 27,
+          "specificity": 0.9310344827586207
+        }
+      },
+      "hard_negative_overall": {
+        "n": 175,
+        "n_correctly_unflagged": 154,
+        "specificity": 0.88
+      }
+    }
+  }
+}
