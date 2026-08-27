@@ -74,13 +74,16 @@ METHODOLOGY_NOTE = (
 )
 
 
-def build_eval_frame(plant: str, base: dict | None = None) -> pd.DataFrame:
-    """One row per (replicate, date): scored prediction joined against
-    sealed ground truth. `kind` in {clean, positive, hard_negative}."""
-    if base is None:
-        base = load_plant_base(plant)
-    scored = score_all_replicates(plant, base=base).reset_index()
-
+def merge_with_ground_truth(scored: pd.DataFrame, plant: str) -> pd.DataFrame:
+    """
+    Joins an ALREADY-SCORED per-day frame (one row per (replicate, date),
+    columns must include flag_type, cusum_flagged, severity_kwh) against
+    plant's sealed ground truth and derives the detected/is_positive/
+    is_hard_negative columns every metric function below needs. Factored
+    out of build_eval_frame() so 7.3 (leave-one-plant-out) can reuse this
+    exact join/derivation logic against a differently-scored frame (scored
+    with a cross-plant twin) without duplicating it.
+    """
     gt = load_ground_truth(plant).copy()
     gt["date"] = pd.to_datetime(gt["date"]).dt.date
 
@@ -108,6 +111,16 @@ def build_eval_frame(plant: str, base: dict | None = None) -> pd.DataFrame:
     merged["is_hard_negative"] = merged["kind"] == "hard_negative"
     merged["plant"] = plant
     return merged
+
+
+def build_eval_frame(plant: str, base: dict | None = None) -> pd.DataFrame:
+    """One row per (replicate, date): scored prediction (using plant's own
+    twin) joined against sealed ground truth. `kind` in {clean, positive,
+    hard_negative}."""
+    if base is None:
+        base = load_plant_base(plant)
+    scored = score_all_replicates(plant, base=base).reset_index()
+    return merge_with_ground_truth(scored, plant)
 
 
 def _prf1(tp: int, fp: int, fn: int) -> tuple[float | None, float | None, float | None]:
