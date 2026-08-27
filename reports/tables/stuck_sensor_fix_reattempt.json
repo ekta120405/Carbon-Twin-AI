@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "a8_recall_old": {
+      "n": 15,
+      "n_hit": 15,
+      "rate": 1.0
+    },
+    "a8_recall_new": {
+      "n": 15,
+      "n_hit": 13,
+      "rate": 0.8666666666666667
+    },
+    "n3_specificity_old": {
+      "n": 12,
+      "n_hit": 7,
+      "rate": 0.5833333333333334
+    },
+    "n3_specificity_new": {
+      "n": 12,
+      "n_hit": 7,
+      "rate": 0.5833333333333334
+    },
+    "other_hard_negative_specificity_old": {
+      "n": 163,
+      "n_hit": 163,
+      "rate": 1.0
+    },
+    "other_hard_negative_specificity_new": {
+      "n": 163,
+      "n_hit": 163,
+      "rate": 1.0
+    }
+  },
+  "decision": "REVERTED",
+  "decision_text": "DECISION: REVERTED. A8 recall 1.000 (n=15) -> 0.867; N3 specificity 0.583 (n=12) -> 0.583. A8 recall dropped by 0.133 (13.3 pp), meeting the revert threshold (>=10pp) even at full 30-replicate scale. src/layer3_anomaly/residual.py is NOT modified.",
+  "raw_n": 540
+}
