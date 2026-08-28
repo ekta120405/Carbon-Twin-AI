@@ -25,7 +25,7 @@ src/evaluation/mdo_curve.py            7.2 — Minimum Detectable Overstatement 
 src/evaluation/leave_one_plant_out.py  7.3 — cross-twin generalization
 src/evaluation/ablations.py            7.4 — ablations a,b,c,d,f,g (e explicitly not built)
 src/evaluation/stuck_sensor_fix.py     7.5 — physics-ceiling discriminator re-attempt (reverted)
-dashboard/pages/5_Evaluation.py        7.6 — full replacement of the old placeholder, 5 tabs
+dashboard/app.py                       7.6 — "Accuracy & Testing" tab (see NOTE below)
 
 reports/tables/task7_benchmark_full.json       7.1 output
 reports/tables/mdo_curve.json                  7.2 output (+ reports/figures/mdo_curve.png, gitignored)
@@ -35,6 +35,20 @@ reports/tables/stuck_sensor_fix_reattempt.json 7.5 output
 
 docs/TASK7_FINDINGS.md                 consolidated result numbers, paper-reference-ready
 ```
+
+**NOTE on 7.6, dashboard integration:** originally built as a 5-tab
+`dashboard/pages/5_Evaluation.py` covering all of 7.1-7.5. The dashboard
+was later redesigned (see `docs/LAYER4_DASHBOARD_HANDOFF.md` §0.1) into a
+single-file, audience-facing app with plain-language labels throughout.
+In that redesign, only 7.1's headline numbers (recall/specificity,
+relabeled "fraud caught" / "legitimate cases correctly left alone") and
+7.2's MDO curve survived onto the visible "Accuracy & Testing" tab — 7.3
+(leave-one-plant-out), 7.4 (ablations), and 7.5 (the stuck-sensor fix
+re-attempt) were deliberately dropped from the on-screen dashboard as
+too much implementation detail for that audience. **This data is not
+lost** — all three still live in their `reports/tables/*.json` outputs
+and in `docs/TASK7_FINDINGS.md`/`docs/TASK7_HANDOFF.md` (this document),
+just not surfaced in the demo UI.
 
 **Nothing in `src/evaluation/` reimplements Layer 2/3/4 detection logic.**
 Every module calls the real `src/layer{2,3,4}_*` functions, reusing

@@ -1,10 +1,11 @@
 # Layer 4.6 (Dashboard) — Handoff Notes
 
-Status as of this commit: **built, wired to real Layers 2-4 code (no
-reimplemented logic), and verified — both plants, five data sources each,
-all five views, zero runtime exceptions.** This is the last module in
-Layer 4 (docs/LAYER4_ROADMAP.md); 4.1-4.5 are documented in
-`docs/LAYER4_MODULES_1_TO_5_HANDOFF.md`.
+Status as of this commit: **redesigned as a single-page, audience-facing
+app** (previously five `dashboard/pages/*.py` multipage files — see
+"Redesign" below). Wired to real Layers 2-4 code with no reimplemented
+logic, verified across multiple plant/period combinations, zero runtime
+exceptions. This is the last module in Layer 4 (docs/LAYER4_ROADMAP.md);
+4.1-4.5 are documented in `docs/LAYER4_MODULES_1_TO_5_HANDOFF.md`.
 
 This document exists for the same reason LAYER2/3/4(1-5)_HANDOFF.md exist:
 several real bugs and non-obvious decisions were found while building this
@@ -17,19 +18,71 @@ violate a caveat-visibility rule the other handoff docs require.
 ## 0. File locations
 
 ```
-dashboard/app.py                                entry point + landing page
-dashboard/lib/pipeline.py                        ALL Layer 2-4 wiring + caching lives here
-dashboard/lib/ui.py                              sidebar controls, caveat text, formatters
-dashboard/pages/1_Project_Risk_Overview.py        view 1 (3.6's score/band)
-dashboard/pages/2_Expected_vs_Claimed.py          view 2 (time series + flags)
-dashboard/pages/3_Flag_Detail.py                  view 3 (4.1/4.2 panels, 4.5 ranking, 4.3 carbon)
-dashboard/pages/4_Carbon_Exposure.py              view 4 (4.3 project/period summary)
-dashboard/pages/5_Evaluation.py                   view 5 (Task 7's real full-scale results, see SS3 below)
+dashboard/app.py                                THE entire app -- one script, five st.tabs()
+dashboard/lib/pipeline.py                        ALL Layer 2-4 wiring + caching lives here (unchanged by the redesign)
+dashboard/lib/ui.py                              sidebar controls, plain-language labels, formatters
 ```
 
 Run with `streamlit run dashboard/app.py` from the repo root with `.venv`
-active. Streamlit's multipage convention auto-discovers `dashboard/pages/*.py`
-as sidebar nav entries — the numeric filename prefixes control ordering.
+active.
+
+## 0.1 Redesign: multipage → single-file, plain language (read this first)
+
+The original 4.6 build used Streamlit's multipage convention (five files
+under `dashboard/pages/`, auto-discovered as separate sidebar nav entries).
+**This was replaced** after the dashboard was judged too complex and too
+jargon-heavy for its actual audience (a project panel, not a Layer 3/4
+developer). Two structural changes, both deliberate:
+
+1. **One script, `st.tabs()`, not five separate page files.** Streamlit's
+   multipage navigation is a full page transition — session state SHOULD
+   persist across it (Streamlit stores it server-side, not per-page), but
+   in practice this was confusing/fragile-feeling for a live demo. `st.tabs()`
+   inside a single script sidesteps the question entirely: tab-switching
+   is client-side and never triggers a fresh page load, so the sidebar's
+   plant/period selection can only ever persist. **If you ever reintroduce
+   multipage files, re-verify selection persistence explicitly — don't
+   assume it "just works" the way it does with tabs.**
+2. **No implementation-detail vocabulary anywhere in rendered text.**
+   Nothing says "Layer 3.6", "CUSUM", "conformal", "SHAP", "classify_days",
+   "F1/AUC-PR", "flag_type" on screen — `dashboard/lib/ui.py`'s
+   `FLAG_LABELS_SIMPLE`, `VERDICT_TEXT`, and `dashboard/app.py`'s
+   `READABLE_FACTORS`/`CAVEAT_BY_FLAG_TYPE` dicts are the ONLY place plain-
+   language translations for these live — extend those dicts for any new
+   technical column/flag type, never hardcode a technical string directly
+   into an `st.markdown`/`st.metric` call. Full technical detail (the
+   content that used to fill each old page) still lives in `docs/` and
+   `reports/tables/` — the dashboard points at conclusions, not methodology.
+
+**What also changed, content-wise:**
+- The five tabs are now **Overview, Evidence, Carbon Credits, Flag
+  Details, Accuracy & Testing** — not a 1:1 rename of the old five views.
+  Carbon Credits was promoted to its own dedicated, prominent tab (it used
+  to be tab 4 of 5, easy to miss) because the project's own title is about
+  carbon credits and early feedback was that this was hard to find.
+- The old Evaluation view's five tabs (benchmark, MDO curve,
+  leave-one-plant-out, ablations, stuck-sensor fix) are now **just two**:
+  a two-number headline scorecard ("fraud caught" / "legitimate cases
+  correctly left alone" — plain-language recall/specificity) and the MDO
+  curve, relabeled ("a single moment" / "one hour" / "a full day" instead
+  of "15min/hourly/daily"). Leave-one-plant-out, the ablation study, and
+  the stuck-sensor fix re-attempt are **deliberately not shown on screen**
+  — they're real, valuable methodology validation, but they're exactly the
+  kind of implementation-detail content this redesign was asked to remove
+  from the audience-facing surface. That data is NOT deleted — it's still
+  in `reports/tables/{leave_one_plant_out,ablations,stuck_sensor_fix_
+  reattempt}.json` and fully written up in `docs/TASK7_FINDINGS.md` /
+  `docs/TASK7_HANDOFF.md` for anyone who asks a deeper question.
+- Long caveat paragraphs became one-line `st.caption`s or short bulleted
+  `note()` expanders (collapsed by default) — never a wall of text.
+
+**Everything below this point (§1 onward) describes the underlying wiring,
+caching, and the per-concept gotchas found while building the ORIGINAL
+five-view technical layout.** All of it is still accurate — `dashboard/
+lib/pipeline.py` was not touched by the redesign — but references to
+specific old page names/filenames should be read as "the tab that now
+covers this," not literally. See `dashboard/app.py` for what's on each
+current tab.
 
 **No new detection/explanation/carbon logic exists anywhere in `dashboard/`.**
 Every number shown is produced by calling the real `src/layer{2,3,4}_*`

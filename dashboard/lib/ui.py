@@ -1,110 +1,108 @@
 """
 dashboard/lib/ui.py
 
-Shared sidebar controls, caveat text, and small formatting helpers reused
-across all five dashboard pages. Caveat strings mirror docs/LAYER4_MODULES_
-1_TO_5_HANDOFF.md SS6 ("carryover caveats that surface through the Layer 4
-UI") -- these MUST be visible on the relevant views, not just in a methods
-appendix, per that document's own instruction to whoever builds 4.6.
+Plain-language labels, colors, and small formatting helpers for the
+audience-facing dashboard. Every string in here is meant to be read by
+someone with no ML/statistics background -- no internal module names,
+metric jargon, or implementation details belong in this file. Technical
+detail lives in the code comments and docs/, not on screen.
 """
 from __future__ import annotations
 
 import streamlit as st
 
-from dashboard.lib.pipeline import PLANTS, source_options, FLAG_COLORS, FLAG_LABELS, BAND_COLORS
+# ---------------------------------------------------------------------------
+# Plain-language flag categories (mirrors pipeline.FLAG_COLORS' keys exactly)
+# ---------------------------------------------------------------------------
 
-ACHIEVABLE_ALPHA_CAVEAT = (
-    "The conformal calibration set is only 5 days per plant -- below the "
-    "sample-size floor for the nominal 5% false-positive rate. The "
-    "**actually achievable** false-positive rate is ~16.7% (1/(n_calib+1)), "
-    "not 5%. Treat flags as calibrated suspicion at that rate, not a 5% "
-    "guarantee."
-)
+FLAG_COLORS = {
+    "flagged_overclaim": "#d62728",
+    "flagged_night_injection": "#ff7f0e",
+    "flagged_stuck_sensor": "#9467bd",
+    "fault_underclaim": "#1f77b4",
+    "normal": "#7f7f7f",
+}
 
-Q50_CAVEAT = (
-    "The twin's central estimate (`expected_q50`) is a monotone-constrained "
-    "**conditional mean**, not a true median -- LightGBM's monotone-"
-    "constraint mechanism rejects any piecewise-linear-gradient objective "
-    "(pinball/MAE), so q50 is trained with an L2 objective instead. Read "
-    "'expected_q50' as 'the twin's central estimate', never 'the median "
-    "forecast'."
-)
+FLAG_LABELS_SIMPLE = {
+    "flagged_overclaim": "Overclaimed energy",
+    "flagged_night_injection": "Reported power at night",
+    "flagged_stuck_sensor": "Frozen sensor reading",
+    "fault_underclaim": "Under-claimed (equipment issue, not fraud)",
+    "normal": "Normal",
+}
 
-PLANT2_TWIN_CAVEAT = (
-    "**plant_2's twin underperforms the physics-only anchor** in clear and "
-    "partly-cloudy regimes (confirmed, unresolved overfitting -- see "
-    "docs/LAYER2_HANDOFF.md SS4). A 'the twin beats physics-only' claim is "
-    "false for plant_2 specifically."
-)
+BAND_COLORS = {"Low": "#2ca02c", "Elevated": "#bcbd22", "High": "#ff7f0e", "Critical": "#d62728"}
 
-SMALL_N_CAVEAT = (
-    "This dataset spans only 34 real days per plant. Any regime-level or "
-    "small-window statistic shown here should be read alongside its sample "
-    "size (n) -- small-n statistics in this project have previously shown "
-    "wildly unstable values (e.g. an R^2 of -61.6 on n=7)."
-)
+VERDICT_TEXT = {
+    "Low": ("Looks trustworthy", "This period's reported generation closely matches independent weather data."),
+    "Elevated": ("A few irregularities found", "Some days don't fully match expectations -- worth a closer look."),
+    "High": ("Multiple irregularities found", "Several days show meaningful gaps between claimed and expected generation."),
+    "Critical": ("Serious irregularities found", "This period shows strong, repeated signs of over-reporting."),
+}
 
-STUCK_SENSOR_UI_CAVEAT = (
-    "The stuck-sensor guardrail also fires on legitimate grid-ordered "
-    "curtailment (N3) when the cap binds for >=8 consecutive slots. A fix "
-    "was attempted and reverted after it cut real detection coverage "
-    "roughly in half. **Treat this flag type as suspected, not confirmed, "
-    "fraud.**"
-)
-
-CARRYOVER_CAVEATS = [ACHIEVABLE_ALPHA_CAVEAT, Q50_CAVEAT, PLANT2_TWIN_CAVEAT, SMALL_N_CAVEAT]
+VERDICT_ICON = {"Low": "✅", "Elevated": "\U0001F7E1", "High": "\U0001F7E0", "Critical": "\U0001F534"}
 
 
-def sidebar_controls() -> tuple[str, str]:
-    """Renders the plant + data-source selectors. Uses session_state keys so
-    the selection persists as the user navigates between pages."""
-    st.sidebar.title("CarbonTwinAI")
-    st.sidebar.caption("Audit-grade digital twin -- Layer 4 explainability & carbon dashboard")
-
-    plant = st.sidebar.selectbox(
-        "Plant", PLANTS, key="plant",
-        format_func=lambda p: p.replace("_", " ").title(),
-    )
-    opts = source_options(plant)
-    keys = [k for k, _ in opts]
-    labels = {k: v for k, v in opts}
-    if st.session_state.get("source_key") not in keys:
-        st.session_state["source_key"] = keys[0]
-    source_key = st.sidebar.selectbox(
-        "Data source", keys, key="source_key", format_func=lambda k: labels[k],
-    )
-    st.sidebar.divider()
-    st.sidebar.caption(
-        "Injected replicates are synthetic anomaly injections from the "
-        "frozen injector (injector-v1.0), used for bounded sanity checks -- "
-        "never for tuning detector logic. 'Real' sources are the plant's "
-        "actual claimed generation."
-    )
-    return plant, source_key
-
-
-def render_caveats(caveats: list[str], title: str = "Known caveats", expanded: bool = False) -> None:
-    if not caveats:
-        return
-    with st.expander(f"{title} ({len(caveats)})", expanded=expanded):
-        for c in caveats:
-            st.markdown(f"- {c}")
-
-
-def band_color(band: str) -> str:
-    return BAND_COLORS.get(band, "#7f7f7f")
+def flag_label(flag_type: str) -> str:
+    return FLAG_LABELS_SIMPLE.get(flag_type, flag_type)
 
 
 def flag_color(flag_type: str) -> str:
     return FLAG_COLORS.get(flag_type, "#7f7f7f")
 
 
-def flag_label(flag_type: str) -> str:
-    return FLAG_LABELS.get(flag_type, flag_type)
+def band_color(band: str) -> str:
+    return BAND_COLORS.get(band, "#7f7f7f")
+
+
+def source_label(source_key: str) -> str:
+    if source_key == "real_full":
+        return "Recent activity (real data)"
+    if source_key == "real_clean":
+        return "Verified clean period (real data)"
+    if source_key.startswith("injected_"):
+        n = int(source_key.split("_")[1]) + 1
+        return f"Test case {n}"
+    return source_key
+
+
+def sidebar_controls() -> tuple[str, str]:
+    """Renders the plant + period selectors once, at the top of the single-
+    page app. Because this app has no multi-page navigation, whatever the
+    user picks here simply persists in st.session_state for the rest of the
+    session -- there is no separate "page" for it to reset on."""
+    from dashboard.lib.pipeline import PLANTS, source_options
+
+    st.sidebar.title("CarbonTwinAI")
+    st.sidebar.caption("Solar generation audit")
+
+    plant = st.sidebar.selectbox(
+        "Plant", PLANTS, key="plant", format_func=lambda p: p.replace("_", " ").title(),
+    )
+    opts = source_options(plant)
+    keys = [k for k, _ in opts]
+    if st.session_state.get("source_key") not in keys:
+        st.session_state["source_key"] = keys[0]
+    source_key = st.sidebar.selectbox(
+        "Period", keys, key="source_key", format_func=source_label,
+    )
+    st.sidebar.divider()
+    st.sidebar.caption(
+        "Test cases are simulated scenarios (some with fraud built in, some "
+        "with real-but-legitimate oddities) used to check the system works "
+        "correctly. Real periods are the plant's actual reported data."
+    )
+    return plant, source_key
+
+
+def note(text: str, title: str = "What does this mean?") -> None:
+    """A short, collapsed-by-default explanation -- never a wall of text."""
+    with st.expander(title):
+        st.markdown(text)
 
 
 def fmt_kwh(x: float) -> str:
-    return f"{x:,.1f} kWh"
+    return f"{x:,.0f} kWh"
 
 
 def fmt_usd(x: float) -> str:
@@ -112,4 +110,4 @@ def fmt_usd(x: float) -> str:
 
 
 def fmt_tco2e(x: float) -> str:
-    return f"{x:,.3f} tCO2e"
+    return f"{x:,.2f} t"
