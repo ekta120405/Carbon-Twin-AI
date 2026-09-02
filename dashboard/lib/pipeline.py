@@ -46,6 +46,8 @@ from src.layer4_xai.flag_shap import compute_day_level_evidence_features
 from src.layer4_xai.carbon import build_carbon_table, aggregate_carbon_exposure, REQUIRED_CAVEATS
 from src.layer4_xai.severity_ranking import rank_flags
 from src.layer4_xai.evidence import build_evidence_bundles_for_plant
+from src.layer3_anomaly.autoencoder import load_autoencoder, compute_daily_ae_flag
+from src.layer3_anomaly.escalation import apply_secondary_evidence_escalation
 
 with open(ROOT / "config" / "config.yaml") as _f:
     CONFIG = yaml.safe_load(_f)
@@ -56,6 +58,7 @@ CUSUM_K = CONFIG["layer3"]["cusum"]["k"]
 GRID_EMISSION_FACTOR = CONFIG["layer4"]["carbon"]["grid_emission_factor_tco2_per_mwh"]
 CARBON_PRICE = CONFIG["layer4"]["carbon"]["carbon_price_usd_per_tco2"]
 MAX_FLAGS_EXPLAINED = CONFIG["layer4"]["shap"]["max_flags_explained"]
+ESCALATION_CFG = CONFIG["layer3"]["escalation"]
 
 PLANTS = ["plant_1", "plant_2"]
 N_REPLICATES = 30
@@ -144,6 +147,19 @@ def load_plant_base(plant: str) -> dict:
     evidence_main = compute_day_level_evidence_features(ts_main, daily_main, capacity_kw)
     clean_reference_pool = evidence_main[evidence_main.index.isin(calib_test_clean_dates)]
 
+    # Secondary-evidence escalation's autoencoder -- persisted by
+    # src/layer3_anomaly/train_autoencoder_model.py. Loaded once per plant
+    # here (this function is st.cache_resource-cached) rather than
+    # retrained on every call, per docs/TASK7_HANDOFF.md's finding that no
+    # reusable trained model existed before this. None if the model
+    # hasn't been trained yet -- callers must treat that as "escalation
+    # unavailable," never silently skip the whole scoring pipeline.
+    ae_model_dir = ROOT / "reports" / "models" / plant
+    autoencoder = None
+    if (ae_model_dir / "autoencoder.pt").exists():
+        ae_result, ae_threshold, ae_run_length = load_autoencoder(str(ae_model_dir))
+        autoencoder = dict(result=ae_result, threshold=ae_threshold, run_length=ae_run_length)
+
     return dict(
         twin=twin,
         capacity_kw=capacity_kw,
@@ -159,6 +175,7 @@ def load_plant_base(plant: str) -> dict:
         calib_dates=calib_dates,
         test_clean_dates=test_clean_dates,
         calib_test_clean_dates=calib_test_clean_dates,
+        autoencoder=autoencoder,
     )
 
 
@@ -210,14 +227,6 @@ def get_scored_context(plant: str, source_key: str) -> dict:
     daily_mean_kt = daylight_kt.groupby(_dates_index(daylight_kt))["twin_kt"].mean()
     daily["kt_regime"] = tag_kt_regime(daily_mean_kt.reindex(daily.index), CSI_BINS)
 
-    severity = compute_daily_flag_severity_kwh(daily, labels, ts_table)
-    flagged_mask = labels.str.startswith("flagged")
-    frac_flagged = float(flagged_mask.mean()) if len(labels) else 0.0
-    total_claimed = float(daily["claimed_energy_kwh"].sum())
-    cum_severity_frac = (
-        float(severity[flagged_mask].sum() / total_claimed) if total_claimed > 0 else 0.0
-    )
-
     window_len = max(len(daily), 2)
     h_calib = calibrate_h_from_clean_data(
         base["reference_pool"], k=CUSUM_K, window_len=window_len, target_fpr=0.05
@@ -225,6 +234,35 @@ def get_scored_context(plant: str, source_key: str) -> dict:
     h = h_calib["recommended_h"]
     cusum_res = run_cusum(daily.sort_index()["r_day"], base["cusum_ref"], k=CUSUM_K, h=h)
     max_s = max(cusum_res.s_values) if cusum_res.s_values else 0.0
+
+    # Secondary-evidence escalation (src/layer3_anomaly/escalation.py) --
+    # upgrades a 'normal' day to 'flagged_overclaim' when it's a
+    # near-miss on the primary test AND a secondary signal (autoencoder
+    # run-length flag, or CUSUM's own statistic) corroborates. MUST run
+    # before severity/frac_flagged/carbon/ranking are computed below, so
+    # every downstream number (risk score, carbon exposure, evidence
+    # bundles) reflects the escalated flags, not the pre-escalation ones.
+    # See config.yaml's layer3.escalation section for the calibration
+    # story (honest split-validated, not a free/zero-cost result).
+    if ESCALATION_CFG.get("enabled") and base.get("autoencoder") is not None:
+        ae = base["autoencoder"]
+        ae_day_flag = compute_daily_ae_flag(
+            ts_table, twin.feature_cols, ae["result"], ae["threshold"], ae["run_length"],
+        )
+        cusum_s_t_series = pd.Series(cusum_res.s_values, index=pd.Index(cusum_res.dates))
+        labels = apply_secondary_evidence_escalation(
+            daily, labels, base["conformal_result"].threshold,
+            cusum_s_t_series, h, ae_day_flag,
+            band_width=ESCALATION_CFG["band_width"], cusum_frac=ESCALATION_CFG["cusum_frac"],
+        )
+
+    severity = compute_daily_flag_severity_kwh(daily, labels, ts_table)
+    flagged_mask = labels.str.startswith("flagged")
+    frac_flagged = float(flagged_mask.mean()) if len(labels) else 0.0
+    total_claimed = float(daily["claimed_energy_kwh"].sum())
+    cum_severity_frac = (
+        float(severity[flagged_mask].sum() / total_claimed) if total_claimed > 0 else 0.0
+    )
 
     warnings = []
     try:

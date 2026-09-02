@@ -40,7 +40,7 @@ if str(ROOT) not in sys.path:
 
 import pandas as pd
 
-from dashboard.lib.pipeline import load_plant_base, CUSUM_K
+from dashboard.lib.pipeline import load_plant_base, CUSUM_K, ESCALATION_CFG
 from src.layer2_twin.physics_anchor import compute_physics_anchor
 from src.layer3_anomaly.residual import (
     build_residual_table,
@@ -51,6 +51,8 @@ from src.layer3_anomaly.residual import (
 from src.layer3_anomaly.conformal import classify_days
 from src.layer3_anomaly.cusum import run_cusum, calibrate_h_from_clean_data
 from src.layer3_anomaly.aggregate import compute_daily_flag_severity_kwh
+from src.layer3_anomaly.autoencoder import compute_daily_ae_flag
+from src.layer3_anomaly.escalation import apply_secondary_evidence_escalation
 
 N_REPLICATES = 30
 REPLICATE_WINDOW_DAYS = 9  # frozen injector's eligible pool span (config/anomalies.yaml)
@@ -98,8 +100,6 @@ def score_dataframe(df: pd.DataFrame, twin, base: dict, capacity_kw: float, meta
     stuck_flags = compute_daily_stuck_sensor_flag(ts_table)
     labels = classify_days(daily["r_day"], base["conformal_result"], night_flags, stuck_flags)
 
-    severity = compute_daily_flag_severity_kwh(daily, labels, ts_table)
-
     window_len = max(len(daily), 2)
     h = _h_for_window(base, window_len)
     cusum_res = run_cusum(daily.sort_index()["r_day"], base["cusum_ref"], k=CUSUM_K, h=h)
@@ -107,6 +107,25 @@ def score_dataframe(df: pd.DataFrame, twin, base: dict, capacity_kw: float, meta
         {"cusum_s_t": cusum_res.s_values, "cusum_flagged": cusum_res.flagged},
         index=pd.Index(cusum_res.dates, name=daily.index.name),
     )
+
+    # Secondary-evidence escalation (src/layer3_anomaly/escalation.py) --
+    # MUST run before severity is computed, so severity/carbon downstream
+    # reflect the escalated flags. See dashboard/lib/pipeline.py's
+    # get_scored_context for the identical wiring (this mirrors it
+    # deliberately -- one calibration story, two call sites).
+    if ESCALATION_CFG.get("enabled") and base.get("autoencoder") is not None:
+        ae = base["autoencoder"]
+        ae_day_flag = compute_daily_ae_flag(
+            ts_table, twin.feature_cols, ae["result"], ae["threshold"], ae["run_length"],
+        )
+        cusum_s_t_series = pd.Series(cusum_res.s_values, index=pd.Index(cusum_res.dates))
+        labels = apply_secondary_evidence_escalation(
+            daily, labels, base["conformal_result"].threshold,
+            cusum_s_t_series, h, ae_day_flag,
+            band_width=ESCALATION_CFG["band_width"], cusum_frac=ESCALATION_CFG["cusum_frac"],
+        )
+
+    severity = compute_daily_flag_severity_kwh(daily, labels, ts_table)
 
     return dict(ts_table=ts_table, daily=daily, labels=labels, severity=severity,
                 cusum=cusum_frame, h=h)

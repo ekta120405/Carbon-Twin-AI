@@ -5,7 +5,12 @@ Status as of this commit: **7.0-7.6 built, run at full scale (30 replicates
 either an already-known result or an independent hand-verification before
 being trusted.** 7.7 (paper figure/table export) intentionally NOT built —
 the paper is being written separately; see `docs/TASK7_FINDINGS.md` for the
-consolidated numbers instead of a paper-specific export step.
+consolidated numbers instead of a paper-specific export step. **A
+post-Task-7 production improvement (secondary-evidence escalation, §6) has
+since shipped on top of this** — every number in `TASK7_FINDINGS.md` and
+this document reflects the CURRENT system including that change, not the
+original Task 7 baseline. See §6 for the full story, including a real bug
+and a methodology mistake, both caught before being trusted.
 
 This document exists for the same reason LAYER2/3/4(1-5)/4(dashboard)_
 HANDOFF.md exist: several real bugs and non-obvious decisions were found
@@ -27,11 +32,14 @@ src/evaluation/ablations.py            7.4 — ablations a,b,c,d,f,g (e explicit
 src/evaluation/stuck_sensor_fix.py     7.5 — physics-ceiling discriminator re-attempt (reverted)
 dashboard/app.py                       7.6 — "Accuracy & Testing" tab (see NOTE below)
 
-reports/tables/task7_benchmark_full.json       7.1 output
+src/layer3_anomaly/escalation.py            post-Task-7 production change — see docs/ESCALATION_IMPROVEMENT_HANDOFF.md
+src/layer3_anomaly/train_autoencoder_model.py  ditto — full file list is in that document, not repeated here
+
+reports/tables/task7_benchmark_full.json       7.1 output (reflects the escalation feature, current system)
 reports/tables/mdo_curve.json                  7.2 output (+ reports/figures/mdo_curve.png, gitignored)
-reports/tables/leave_one_plant_out.json        7.3 output
-reports/tables/ablations.json                  7.4 output
-reports/tables/stuck_sensor_fix_reattempt.json 7.5 output
+reports/tables/leave_one_plant_out.json        7.3 output (reflects §6's escalation, current system)
+reports/tables/ablations.json                  7.4 output (reflects §6's escalation, current system)
+reports/tables/stuck_sensor_fix_reattempt.json 7.5 output (unaffected by §6 -- independent code path)
 
 docs/TASK7_FINDINGS.md                 consolidated result numbers, paper-reference-ready
 ```
@@ -371,3 +379,26 @@ an identical-looking number is guardrail-driven before trusting it.
   injected/ground-truth data anywhere in Task 7 — confirmed by construction,
   since every module reuses `load_plant_base()`'s already-calibrated
   values rather than recomputing them.
+
+---
+
+## 6. Post-Task-7 improvement: secondary-evidence escalation (production change)
+
+A follow-up round of work after Task 7 shipped, with its own full handoff
+document: **`docs/ESCALATION_IMPROVEMENT_HANDOFF.md`** — read that, not a
+duplicate here. Short summary for context: the autoencoder (3.4) and
+CUSUM (3.5) both carry real signal that `classify_days()` (3.3) never
+uses; a blanket OR of either one was already tested and rejected here in
+Task 7 (ablations (c)/(f)) for costing more false positives than it
+gained. The follow-up work found a narrower way to recover some of that
+signal — only trust a secondary signal on a day that's already borderline
+on the main test — validated it honestly (including catching a real
+methodology mistake and a real bug along the way, both documented in
+full in the other handoff doc), and shipped it as the current production
+behavior.
+
+**Every number in `docs/TASK7_FINDINGS.md` and this document reflects
+that change, not the original Task 7 baseline.** Original baseline, for
+reference: recall 58.5%, precision 80.1%, F1 67.7%, specificity 92.0%.
+Current, post-escalation: recall 64.8%, precision 81.7%, F1 72.3%,
+specificity 92.0% (unchanged — identical false positives, not just count).

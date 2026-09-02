@@ -117,6 +117,40 @@ layer3:
     epochs: 200
     learning_rate: 0.001
 
+  escalation:
+    # Secondary-evidence escalation: upgrades a 'normal' day to
+    # 'flagged_overclaim' when its r_day sits close below the main
+    # conformal threshold AND at least one secondary signal (the
+    # autoencoder's calibrated run-length flag, or CUSUM's running
+    # statistic) corroborates. Added after src/evaluation/_experiment_*
+    # scripts found the naive version (escalating ANY near-threshold day,
+    # or trusting the autoencoder/CUSUM as a blanket OR) either overfit to
+    # the known 30-replicate test set or cost more in false positives than
+    # it gained -- see docs/TASK7_HANDOFF.md and PROJECT_RESULTS_SUMMARY.md.
+    #
+    # band_width and cusum_frac below were chosen via an honest split
+    # validation: swept on replicates 0-19 only ("tune"), then verified on
+    # the untouched replicates 20-29 ("holdout") -- the most aggressive
+    # tune-set winner (band_width=0.7, cusum_frac=0.0) DID generalize on
+    # that holdout (F1 0.716->0.794), but a SEPARATE check (not part of
+    # the replicate pool at all) found it also flagged real, hand-verified
+    # honest data -- including, in one case, the exact calib day that
+    # DEFINED the conformal threshold itself (a real bug, since fixed --
+    # see escalation.py's near_threshold comment -- but the parameters
+    # were also simply too aggressive for that acceptance check even after
+    # the bug fix). Backed off to this more conservative pair: still a
+    # real, substantial gain (pooled recall 58.5%->64.8%, F1 0.677->0.723)
+    # with ZERO specificity cost on the pooled hard-negative test (0.920,
+    # unchanged), and it restores the real-clean/real-full acceptance
+    # blocks to a clean "Low" risk band on both plants. See
+    # docs/TASK7_HANDOFF.md for the full story, including why the more
+    # aggressive pair was rejected despite validating on the replicate
+    # holdout -- generalizing to unseen REPLICATES is not the same claim
+    # as generalizing to genuinely different REAL data.
+    enabled: true
+    band_width: 0.8       # escalate if r_day > band_width * threshold (and < threshold, strictly)
+    cusum_frac: 0.5        # escalate if cusum_s_t > cusum_frac * cusum_h
+
 # ---------- Layer 4: XAI, carbon, reporting ----------
 layer4:
   shap:

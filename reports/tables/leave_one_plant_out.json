@@ -9,91 +9,91 @@
           "n_positive": 95,
           "n_negative": 175,
           "tp": 95,
-          "fp": 122,
+          "fp": 161,
           "fn": 0,
-          "tn": 53,
-          "precision": 0.4377880184331797,
+          "tn": 14,
+          "precision": 0.37109375,
           "recall": 1.0,
-          "f1": 0.6089743589743589,
-          "auc_pr": 0.7603375069940627
+          "f1": 0.5413105413105413,
+          "auc_pr": 0.7486087702610725
         },
         "per_type": {
           "A1_constant_overclaim": {
             "n": 16,
             "n_detected": 16,
-            "precision": 0.11594202898550725,
+            "precision": 0.0903954802259887,
             "recall": 1.0,
-            "f1": 0.20779220779220778
+            "f1": 0.16580310880829013
           },
           "A2_peak_hour_shaving": {
             "n": 14,
             "n_detected": 14,
-            "precision": 0.10294117647058823,
+            "precision": 0.08,
             "recall": 1.0,
-            "f1": 0.18666666666666665
+            "f1": 0.14814814814814814
           },
           "A3_night_injection": {
             "n": 11,
             "n_detected": 11,
-            "precision": 0.08270676691729323,
+            "precision": 0.06395348837209303,
             "recall": 1.0,
-            "f1": 0.1527777777777778
+            "f1": 0.12021857923497267
           },
           "A4_day_swap": {
             "n": 14,
             "n_detected": 14,
-            "precision": 0.10294117647058823,
+            "precision": 0.08,
             "recall": 1.0,
-            "f1": 0.18666666666666665
+            "f1": 0.14814814814814814
           },
           "A5_weather_spoofing": {
             "n": 15,
             "n_detected": 15,
-            "precision": 0.10948905109489052,
+            "precision": 0.08522727272727272,
             "recall": 1.0,
-            "f1": 0.19736842105263158
+            "f1": 0.15706806282722513
           },
           "A6_slow_drift": {
             "n": 7,
             "n_detected": 7,
-            "precision": 0.05426356589147287,
+            "precision": 0.041666666666666664,
             "recall": 1.0,
-            "f1": 0.10294117647058823
+            "f1": 0.07999999999999999
           },
           "A7_capacity_violation": {
             "n": 10,
             "n_detected": 10,
-            "precision": 0.07575757575757576,
+            "precision": 0.05847953216374269,
             "recall": 1.0,
-            "f1": 0.14084507042253522
+            "f1": 0.11049723756906078
           },
           "A8_flatline": {
             "n": 8,
             "n_detected": 8,
-            "precision": 0.06153846153846154,
+            "precision": 0.047337278106508875,
             "recall": 1.0,
-            "f1": 0.11594202898550725
+            "f1": 0.0903954802259887
           }
         },
         "shared_fp_pool": {
-          "shared_fp_pool_flagged": 122,
+          "shared_fp_pool_flagged": 161,
           "shared_fp_pool_total": 175
         },
         "hard_negative_per_type": {
           "N1_inverter_outage": {
             "n": 19,
-            "n_correctly_unflagged": 3,
-            "specificity": 0.15789473684210525
+            "n_correctly_unflagged": 0,
+            "specificity": 0.0
           },
           "N2_soiling_loss": {
             "n": 12,
-            "n_correctly_unflagged": 2,
-            "specificity": 0.16666666666666666
+            "n_correctly_unflagged": 0,
+            "specificity": 0.0
           },
           "N3_curtailment": {
             "n": 9,
-            "n_correctly_unflagged": 2,
-            "specificity": 0.2222222222222222
+            "n_correctly_unflagged": 1,
+            "specificity": 0.1111111111111111
           },
           "N4_sensor_dropout": {
             "n": 14,
@@ -107,19 +107,19 @@
           },
           "N6_extreme_heat": {
             "n": 13,
-            "n_correctly_unflagged": 4,
-            "specificity": 0.3076923076923077
+            "n_correctly_unflagged": 0,
+            "specificity": 0.0
           },
           "N7_cloud_enhancement": {
             "n": 12,
-            "n_correctly_unflagged": 3,
-            "specificity": 0.25
+            "n_correctly_unflagged": 0,
+            "specificity": 0.0
           }
         },
         "hard_negative_overall": {
           "n": 88,
-          "n_correctly_unflagged": 27,
-          "specificity": 0.3068181818181818
+          "n_correctly_unflagged": 14,
+          "specificity": 0.1590909090909091
         }
       },
       "metrics_including_cusum": {
@@ -134,7 +134,7 @@
           "precision": 0.35580524344569286,
           "recall": 1.0,
           "f1": 0.5248618784530387,
-          "auc_pr": 0.7603375069940627
+          "auc_pr": 0.7486087702610725
         },
         "per_type": {
           "A1_constant_overclaim": {
@@ -487,26 +487,26 @@
   "comparison_vs_own_twin": {
     "plant_1": {
       "own_twin": {
-        "precision": 0.9152542372881356,
-        "recall": 0.5684210526315789,
-        "f1": 0.7012987012987013,
-        "auc_pr": 0.7179172822959866
+        "precision": 0.921875,
+        "recall": 0.6210526315789474,
+        "f1": 0.7421383647798742,
+        "auc_pr": 0.7522316599294342
       },
       "cross_twin": {
-        "precision": 0.4377880184331797,
+        "precision": 0.37109375,
         "recall": 1.0,
-        "f1": 0.6089743589743589,
-        "auc_pr": 0.7603375069940627
+        "f1": 0.5413105413105413,
+        "auc_pr": 0.7486087702610725
       },
       "own_twin_hard_negative_specificity": 0.9431818181818182,
-      "cross_twin_hard_negative_specificity": 0.3068181818181818
+      "cross_twin_hard_negative_specificity": 0.1590909090909091
     },
     "plant_2": {
       "own_twin": {
-        "precision": 0.7195121951219512,
-        "recall": 0.6020408163265306,
-        "f1": 0.6555555555555556,
-        "auc_pr": 0.7319057510936015
+        "precision": 0.7415730337078652,
+        "recall": 0.673469387755102,
+        "f1": 0.7058823529411764,
+        "auc_pr": 0.7785847936091553
       },
       "cross_twin": {
         "precision": 0.676056338028169,

@@ -59,6 +59,7 @@ route around silently.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -262,3 +263,176 @@ def compute_reconstruction_error(
         error = ((recon - X) ** 2).mean(dim=1).numpy()
 
     return pd.Series(error, index=features.index, name="reconstruction_error")
+
+
+def _longest_over_threshold_run(error: pd.Series, threshold: float) -> int:
+    """Longest run of consecutive (in the given, time-ordered index)
+    values exceeding threshold. 0 if none exceed it."""
+    over = error > threshold
+    if not over.any():
+        return 0
+    run_id = (~over).cumsum()
+    run_sizes = over.groupby(run_id).transform("sum") * over
+    return int(run_sizes.max())
+
+
+def train_and_calibrate(
+    ts_table: pd.DataFrame,
+    twin_feature_cols: list[str],
+    train_mask: pd.Series,
+    calib_dates,
+    test_clean_dates,
+    hidden: list[int],
+    epochs: int,
+    learning_rate: float,
+    threshold_percentile: float = 0.95,
+) -> tuple[TrainResult, float, int]:
+    """
+    THE canonical training+calibration path for this module -- trains on
+    `ts_table[train_mask]`, then calibrates BOTH quantities this project's
+    escalation logic needs from clean data alone (calib+test_clean),
+    never from injected/labeled data:
+      - `threshold`: 95th percentile of pooled clean reconstruction error
+        (same convention as aggregate.py's calibrate_divergence_cap).
+      - `run_length`: the longest run of consecutive over-threshold
+        timesteps ever observed on that SAME clean pool, plus one. A day
+        is only escalated by a run at least this long -- one shorter than
+        anything real clean data itself produces (src/evaluation/
+        _experiment_ae_runlength.py's investigation: plant_1's own clean
+        data produces a run as long as 28, so a naively eyeballed cutoff
+        that ignored this would not actually sit above the clean noise
+        floor).
+    Single source of truth for both src/evaluation/ablations.py's ablation
+    (f) and the real production trainer (src/layer3_anomaly/
+    train_autoencoder_model.py) -- do not reimplement this a third time.
+    """
+    feats = build_autoencoder_features(ts_table, twin_feature_cols)
+    split_dates = pd.Series(ts_table.index.date, index=ts_table.index).loc[feats.index]
+    is_daylight = ts_table["is_daylight"].astype(bool).loc[feats.index]
+
+    train_feats = feats[train_mask.reindex(feats.index, fill_value=False)]
+    clean_dates = calib_dates.union(test_clean_dates)
+    clean_feats = feats[split_dates.isin(clean_dates)]
+    calib_feats = feats[split_dates.isin(calib_dates)]
+
+    result = train_autoencoder(
+        train_feats, hidden=hidden, epochs=epochs, learning_rate=learning_rate,
+        early_stop_features=calib_feats if len(calib_feats) else None,
+    )
+
+    # Threshold: pooled clean data, day+night (matches src/evaluation/
+    # ablations.py's original train_plant_autoencoder -- establishes what
+    # "normal reconstruction error" looks like overall).
+    clean_error = compute_reconstruction_error(clean_feats, result)
+    threshold = float(clean_error.quantile(threshold_percentile))
+
+    # Run-length: DAYLIGHT ONLY -- a run spanning near-zero-power night
+    # rows doesn't reflect the same signal a daylight run does, and this
+    # must match score_replicate_autoencoder()'s day-level flagging, which
+    # is also daylight-only. Restricting to clean days AND daylight rows,
+    # in that order, mirrors src/evaluation/_experiment_ae_runlength.py's
+    # investigation exactly (plant_1's own clean daylight data alone
+    # produces a run as long as 28 -- night rows were never part of that
+    # finding and must not silently change it here).
+    clean_daylight_error = compute_reconstruction_error(feats[split_dates.isin(clean_dates) & is_daylight], result)
+    run_length = _longest_over_threshold_run(clean_daylight_error, threshold) + 1
+
+    return result, threshold, run_length
+
+
+def compute_daily_ae_flag(
+    ts_table: pd.DataFrame, twin_feature_cols: list[str], result: TrainResult,
+    threshold: float, run_length: int,
+) -> pd.Series:
+    """
+    Day-level autoencoder flag using a RUN of `run_length` consecutive
+    over-threshold DAYLIGHT timesteps -- not the earlier "any single
+    timestep" rule (still used, deliberately unchanged, by src/evaluation/
+    ablations.py's ablation (f), which is reporting on that original rule
+    specifically). This run-length version is what src/evaluation/
+    _experiment_ae_runlength.py validated as a real improvement (see
+    docs/TASK7_HANDOFF.md and docs/PROJECT_RESULTS_SUMMARY.md) and is the
+    one used by the production escalation path
+    (src/layer3_anomaly/escalation.py).
+    """
+    feats = build_autoencoder_features(ts_table, twin_feature_cols)
+    error = compute_reconstruction_error(feats, result)
+
+    daylight_idx = ts_table.index[ts_table["is_daylight"].astype(bool)]
+    error_daylight = error[error.index.isin(daylight_idx)].sort_index()
+    over = error_daylight > threshold
+
+    run_id = (~over).cumsum()
+    run_sizes = over.groupby(run_id).transform("sum") * over
+    qualifies = run_sizes >= run_length
+
+    dates = pd.Series(error_daylight.index.date, index=error_daylight.index)
+    return qualifies.groupby(dates).any()
+
+
+def save_autoencoder(
+    result: TrainResult, hidden: list[int], threshold: float, run_length: int, out_dir: str,
+) -> None:
+    """
+    Persists a trained autoencoder for reuse across runs -- until this
+    function existed, the autoencoder was retrained from scratch every
+    single time it was needed (confirmed via grep before this was added;
+    see docs/TASK7_HANDOFF.md). Follows this project's established
+    text-format-over-pickle convention (LAYER2_HANDOFF.md SS1: LightGBM
+    boosters are saved via .save_model(), never pickled, for version
+    stability across machines) -- the scaler's fitted mean/scale are
+    written out as plain JSON floats rather than a pickled StandardScaler
+    object, for the same reason.
+
+    `threshold` and `run_length` are NOT properties of the model itself --
+    they're the two calibrated quantities computed alongside it (95th
+    percentile of pooled calib+test_clean reconstruction error, and the
+    max over-threshold run length observed on that same clean pool + 1,
+    see src/evaluation/ablations.py / _experiment_ae_runlength.py) -- both
+    persisted here so a caller never has to re-derive them.
+    """
+    import json
+    import torch
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    torch.save(result.model.state_dict(), out / "autoencoder.pt")
+    with open(out / "autoencoder_meta.json", "w") as f:
+        json.dump(
+            {
+                "input_cols": result.input_cols,
+                "hidden": hidden,
+                "threshold": threshold,
+                "run_length": run_length,
+                "scaler_mean": result.scaler.mean_.tolist(),
+                "scaler_scale": result.scaler.scale_.tolist(),
+            },
+            f,
+            indent=2,
+        )
+
+
+def load_autoencoder(model_dir: str) -> tuple[TrainResult, float, int]:
+    """Loads what save_autoencoder() wrote. Returns (TrainResult usable
+    directly with compute_reconstruction_error(), threshold, run_length)."""
+    import json
+
+    import numpy as np
+    import torch
+
+    d = Path(model_dir)
+    with open(d / "autoencoder_meta.json") as f:
+        meta = json.load(f)
+
+    scaler = StandardScaler()
+    scaler.mean_ = np.array(meta["scaler_mean"])
+    scaler.scale_ = np.array(meta["scaler_scale"])
+    scaler.var_ = scaler.scale_**2
+    scaler.n_features_in_ = len(meta["input_cols"])
+
+    model = build_model(input_dim=len(meta["input_cols"]), hidden=meta["hidden"])
+    model.load_state_dict(torch.load(d / "autoencoder.pt", weights_only=True))
+    model.eval()
+
+    result = TrainResult(model=model, scaler=scaler, loss_history=[], input_cols=meta["input_cols"])
+    return result, meta["threshold"], meta["run_length"]
