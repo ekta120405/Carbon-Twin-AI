@@ -402,6 +402,58 @@ See `docs/ESCALATION_IMPROVEMENT_HANDOFF.md` for the full technical account, and
 useful example of the project's own standards, not just an engineering
 detail.
 
+### 6.9 A later round: four more ideas tried, none adopted, and why that's still useful
+
+After the double-checking rule above shipped, the team tried four more
+ideas specifically aimed at the two remaining weak spots: the midday-only
+over-claim, and the slow, creeping drift. Every idea was tested the same
+careful way as everything else in this project — checked against real
+honest data, and never tuned by peeking at the sealed answer key before
+the final check.
+
+1. **Looking only at each day's busiest hours**, instead of the whole
+   day, to try to catch the midday-only trick more easily by not diluting
+   it into a full day's total. Result: almost no difference. Shrinking
+   the time window makes the "what's normal" comparison noisier by about
+   as much as it makes the fraud pattern stand out — the two effects
+   cancel out.
+2. **Making the slow-drift tracker react faster**, so it could catch
+   shorter, smaller creeping increases. This was checked honestly
+   *before* looking at any real test case — using only real clean data
+   and the test-generator's own public settings, never a specific
+   simulated example. Result: only a couple of percentage points of
+   improvement, nowhere near enough to justify using it. Making the
+   tracker more sensitive also makes it more prone to false alarms on
+   ordinary days, so its own alarm threshold has to rise to compensate —
+   and that trade-off cancels out almost all the gain.
+3. **Combining several existing clues into one smarter score** — the
+   day's gap, the drift tracker's running total, and the
+   pattern-recognition tool's opinion — instead of checking them one at a
+   time. Result: this genuinely worked at catching more fraud (it roughly
+   doubled the midday-fraud catch rate and lifted the slow-drift catch
+   rate from near-zero to about a third), but it also started wrongly
+   flagging real, honest situations far too often — a cost this project's
+   own standards don't accept. Real signal, unacceptable price.
+4. **A more careful, restrained version of #3** — only letting it speak
+   up on a day that's already borderline, the exact same cautious rule
+   the double-checking trick above already uses. This fixed the
+   false-alarm problem, but then it barely helped at all: it caught a
+   couple of different cases instead of new ones, landing back at
+   essentially the same overall result — and it still didn't touch the
+   slow-drift problem, because a genuinely slow drift almost never looks
+   borderline on any single day in the first place, which is exactly
+   what makes it hard.
+
+**The honest conclusion**: both remaining weak spots trace back to how
+little genuinely honest history this project has to learn from — only 5
+real days set the main detection threshold (§3.1). The one change that
+*would* meaningfully help — using more of the real data to set that
+threshold — was considered and deliberately not made, because it would
+remove the project's last independent check that the threshold is set
+correctly in the first place (the same kind of check that caught a real
+bug once, described in the box above). Full technical detail on all four
+attempts is in `docs/ESCALATION_IMPROVEMENT_HANDOFF.md` §8.
+
 ### 6.7 Why so many different checks, instead of just one?
 
 Fraud doesn't have one single shape. A crude, obvious fake (reporting

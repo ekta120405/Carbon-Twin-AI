@@ -89,9 +89,9 @@ sign of a stronger system.
 - **Slow, creeping fraud is the hardest pattern to catch.** A fraud
   scenario designed to gradually ramp up over several days (rather than
   jump all at once) was only caught about 6% of the time — the one
-  category the later improvement round (§7) did not manage to meaningfully
-  help, even though a version of it targeted specifically at this pattern
-  looked promising in early testing. This is a genuinely hard statistical
+  category neither the improvement round (§7) nor four further attempts
+  after it (§8) managed to meaningfully help, even though more than one
+  of those attempts looked promising in early testing. This is a genuinely hard statistical
   problem — the whole point of that fraud pattern is to never look
   unusual on any single day — and the project reports this rate honestly
   rather than disguising it.
@@ -240,3 +240,54 @@ time it appears is exactly what this project has been built to resist,
 everywhere else — the same discipline applied to every other number in
 this report was applied here too, including when it meant giving up some
 of the improvement to keep the result honest.
+
+---
+
+## 8. A further round of testing, after the improvement in §7 — four more ideas, all honestly ruled out
+
+After §7's improvement shipped, one more round of work asked: could the
+two weakest categories — the midday-only over-claim (26% caught) and the
+slow, creeping drift (6% caught) — be improved further, still without
+changing what the system fundamentally is? Four different ideas were
+tried, each tested with the same rigor as everything else in this
+report: never tuned against the sealed answer key, and always
+double-checked against real honest data too, not just the simulated
+tests.
+
+**What was tried, and what happened:**
+
+1. **Zooming in on just the busiest hours of the day**, instead of the
+   whole day's total, to try to catch a fraud pattern that only ever
+   appears mid-day. *Result: no real improvement.* The comparison got
+   noisier by almost exactly as much as the fraud pattern became easier
+   to spot, canceling out any gain.
+2. **Making the slow-drift tracker more sensitive**, to catch shorter
+   and smaller creeping increases. Checked honestly — using only real
+   clean data and the test-generator's own public rules — *before* ever
+   looking at a real test case. *Result: only a couple of percentage
+   points of improvement*, nowhere near enough to be worth the added
+   complexity.
+3. **Combining several existing clues into one smarter score.** This one
+   genuinely worked: it roughly doubled the midday-fraud catch rate and
+   lifted the slow-drift catch rate from near-zero to about a third. But
+   it also started wrongly flagging real, honest situations far more
+   often — the "legitimate cases correctly left alone" rate dropped from
+   92% to about 63%. *Not an acceptable trade for this project.*
+4. **A more cautious version of #3**, only letting it act on days that
+   were already borderline — the same careful rule already used in §7's
+   improvement. This fixed the false-alarm problem, but then made
+   *almost no net difference overall* — it caught a couple of different
+   cases in place of the ones it lost, landing back at essentially the
+   same total, and it still didn't move the slow-drift number at all.
+
+**The honest bottom line**: none of the four were adopted, and the
+headline numbers in §1 are unchanged. This wasn't wasted effort, though —
+it converts a suspicion ("these two categories are probably about as good
+as they can get with this much data") into a demonstrated fact, tested
+four different ways. The one change that *would* meaningfully move the
+numbers — using more of the real data to set the detection threshold —
+was deliberately not made, because it would remove the project's own
+safety check that the threshold is set correctly in the first place (the
+same kind of check that caught the real bug described in §7). Full
+technical detail on all four attempts is in
+`docs/ESCALATION_IMPROVEMENT_HANDOFF.md` §8.

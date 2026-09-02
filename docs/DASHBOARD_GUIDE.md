@@ -97,8 +97,9 @@ period, how worried should I be?"
 ### The verdict banner
 
 A colored box at the top with an icon and a short headline. This is a
-direct, plain-language translation of a 0–100 numeric "trust score" into
-one of four bands:
+direct, plain-language translation of a 0–100 numeric **risk score**
+(NOT called a "trust score" — see the note below on why the labeling
+matters) into one of four bands:
 
 | Score range | Color | Icon | Headline |
 |---|---|---|---|
@@ -107,18 +108,27 @@ one of four bands:
 | 50–75 | Orange | 🟠 | "Multiple irregularities found" |
 | 75–100 | Red | 🔴 | "Serious irregularities found" |
 
-Directly underneath the banner, in small text: **"Trust score: NN / 100"**
+Directly underneath the banner, in small text: **"Risk score: NN / 100"**
 — the exact number the color band was derived from. A score of 24 and a
 score of 26 look almost identical in substance but land in different
 color bands — if you're explaining a borderline case, it's worth
 mentioning the exact number, not just the color.
 
-**How to interpret this:** think of it like a credit score for how
-closely this specific plant's claims, over this specific period, matched
-independent reality. It is **not** a fixed property of the plant overall
-— switching the "Period" dropdown to a different test case or a different
-real window will very likely produce a different score, because it's
-scoring *that period's data specifically*.
+**How to interpret this:** think of it like the opposite of a credit
+score — **low is good**. A low number means this specific plant's claims,
+over this specific period, closely matched independent reality; a high
+number means they didn't. It is **not** a fixed property of the plant
+overall — switching the "Period" dropdown to a different test case or a
+different real window will very likely produce a different score,
+because it's scoring *that period's data specifically*.
+
+**Why it's called a "risk score," not a "trust score":** the underlying
+number is 0 for spotless and 100 for maximally suspicious — it goes UP as
+the plant looks WORSE. Calling that a "trust score" would read backwards
+(a low "trust score" sounds like "not trustworthy," when a low number
+here actually means the opposite). The label was corrected to match what
+the number actually does, rather than inverting the number to match a
+friendlier-sounding label.
 
 ### The three stat tiles
 
@@ -161,7 +171,7 @@ If this tab shows "No flags in this period" instead of a chart, that
 simply means every day in the currently selected period came back clean
 — try a test case from the sidebar to see flagged examples.
 
-### The "How is the trust score calculated?" note
+### The "How is the risk score calculated?" note
 
 A collapsed-by-default expander (click to open). It lists, in one short
 paragraph, the five things that feed into the 0–100 score: how many days

@@ -131,7 +131,7 @@ with tab_overview:
         </div>""",
         unsafe_allow_html=True,
     )
-    st.caption(f"Trust score: **{risk.score:.0f} / 100**")
+    st.caption(f"Risk score: **{risk.score:.0f} / 100**")
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Days reviewed", n_total)
@@ -152,12 +152,14 @@ with tab_overview:
         st.info("No flags in this period.")
 
     note(
-        "The trust score combines five checks: how many days were flagged, "
+        "The risk score combines five checks: how many days were flagged, "
         "how much energy is unaccounted for, whether there's a slow "
         "creeping pattern of over-reporting, whether this plant's numbers "
         "match its own normal behavior, and whether its on-site sensors "
-        "agree with independent satellite weather data.",
-        title="How is the trust score calculated?",
+        "agree with independent satellite weather data. A LOW score means "
+        "the plant looks clean; a HIGH score means more irregularities were "
+        "found.",
+        title="How is the risk score calculated?",
     )
 
 # ===========================================================================
