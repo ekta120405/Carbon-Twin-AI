@@ -347,3 +347,134 @@ that does not change its band.
   plant/source combinations (both plants × `injected_010`/`injected_000`,
   `real_clean`, `real_full`) — zero exceptions, both before and after the
   final conservative parameter choice.
+
+---
+
+## 8. A further round: what was tried after this, what worked, what didn't, and why
+
+After the escalation feature above shipped, a follow-up effort targeted
+the two categories it left weakest — A2_peak_hour_shaving (25.9% recall)
+and A6_slow_drift (5.6% recall) — explicitly without changing the twin
+model or restructuring any layer. Four genuinely different mechanisms
+were built and honestly validated (tune-set/holdout-replicate splits
+where a parameter was being chosen, clean-data-only power checks before
+touching labels where nothing was being swept, real-clean re-checks, and
+full benchmark re-runs) following the identical discipline documented
+above. **None were shipped.** The code for these attempts was not kept
+in the repository (unlike this document's own `_experiment_*.py`
+scripts) — the numbers below are the recorded result of code that was
+built, run, and verified during that work, not evidence that remains
+checked in. Production numbers are unaffected by any of this: recall
+64.8%, precision 81.7%, F1 0.723, specificity 92.0% (identical to §7
+above).
+
+**1. Peak-window residual signal, targeting A2.** A second residual
+restricted to each day's peak-generation window (ranked by the physics
+anchor, not a fixed clock range, to avoid overfitting to the injector's
+own `hours_local: [10,15]` choice), calibrated the same calib-only way as
+the main threshold. Swept 4 window widths × 2 wiring options
+(near-threshold-gated corroborator vs. standalone guardrail) on a
+tune/holdout replicate split.
+**Result: zero net improvement in A2 recall, at every configuration
+tested.** **Why:** narrowing the aggregation window increases the
+residual's day-to-day noise almost exactly as fast as it concentrates the
+injected signal, so the same "max of 5 calib days" calibration convention
+inflates the new threshold by nearly the same factor as the anomaly
+itself — the two effects cancel at this project's calibration scale (5
+real clean days). Confirmed directly: on plant_1, only ~0-3% of all real
+days ever exceeded the peak-window threshold at any width tested, and
+specific missed A2 days showed the concentration ratio (~1.2-1.6x) was
+smaller than the threshold's own noise-driven inflation (~1.19-1.4x) —
+not a coding bug, a structural consequence of the small calibration set.
+**Not used.**
+
+**2. A faster-reacting CUSUM timescale, targeting A6.** Before touching
+any labeled replicate, an honest power pre-check (bootstrap-resampled
+real clean data, synthetic ramps built only from the injector's
+*published, frozen* parameter ranges — never any actual replicate's
+label) estimated whether a lower-`k`/recalibrated-`h` CUSUM could
+meaningfully catch the short (3-4 day), subtle (8-12% delta) ramps
+production CUSUM misses. A pre-declared bar (≥15 percentage points of
+synthetic detection-power gain) governed whether to proceed further.
+**Result: best candidate gained only ~2 percentage points on both
+plants — nowhere near the bar. Stopped at the gate; no labeled
+tune/holdout step was even run.** **Why:** lowering `k` makes the
+statistic more sensitive to sustained small deviations, but the
+bootstrap FPR-calibration compensates by raising `h` back up almost
+proportionally (it saturated at the top of the candidate grid at every
+`k` tested below 0.20) — the two effects largely cancel, consistent
+with (and now empirically confirming, not just inferring from one real
+replicate) the power ceiling already noted in `cusum.py`'s own module
+docstring. **Not used.**
+
+**3. A combined-evidence test (standalone), targeting both.** Rather
+than adding a new signal, this combined the THREE signals already in
+the system — r_day, CUSUM's running statistic, and the autoencoder's
+reconstruction error — into one continuous score (each standardized
+against clean-data spread, summed with equal, not fit, weights), with
+its own calib-only calibrated threshold, evaluated as a full alternative
+to the primary magnitude test (not an addition on top of it).
+**Result: real, holdout-consistent gains on exactly the targeted
+categories — A2 recall roughly doubled (25.9%→40.7%), A6 recall jumped
+(5.6%→33.3%) — but hard-negative specificity collapsed from 92.0% to
+62.9%, and pooled F1 fell from 0.723 to 0.575.** **Why:** unlike r_day
+(one-sided by construction), CUSUM's statistic and the autoencoder's
+reconstruction error respond to *any* unusual pattern, not specifically
+to over-claiming — so they fire just as readily on legitimate
+operational anomalies (curtailment, soiling, outages, heavy cloud) as on
+real fraud. This independently reproduces, via a different mechanism,
+the same finding this project's own ablations (c)/(f) already
+established: blindly combining these signals without gating costs more
+in false positives than it gains. **Not used** — the signal is real, the
+cost is not acceptable.
+
+**4. The same combined-evidence test, gated.** A more conservative
+variant: the combined score only gets to upgrade a day that's already a
+near-miss on the primary r_day test — the same near-threshold band the
+shipped escalation feature (§2-§7 above) already uses, substituting the
+continuous combined score for escalation's OR-of-booleans corroboration
+check. **Result: statistically indistinguishable from current
+production in aggregate (byte-identical TP/FP/FN/TN counts), but a real
+shift in composition — 2 fewer true A2 detections, made up by 1 extra A1
+and 1 extra A4 elsewhere; A6 completely unaffected (unchanged at
+5.6%).** **Why:** the combined score corroborates a slightly different,
+largely non-overlapping set of near-threshold days than escalation's
+existing `cusum_elevated | ae_flagged` check — net zero at the aggregate
+level. A6 stays untouched specifically because gating on nearness to the
+*daily* r_day threshold structurally excludes most A6 days by
+construction (a slow ramp is, by design, the anomaly type that never
+approaches the daily threshold at all) — independent of which secondary
+signal feeds the gate, the gate mechanism itself is the bottleneck for
+that category. **Not used** — no net benefit, and a specific loss on the
+one category (A2) this was meant to help.
+
+**5. Pooled calibration (calib+test_clean) — considered, never
+implemented.** Using both real clean blocks (n=10 instead of n=5) for
+the main conformal threshold would improve the achievable false-positive
+guarantee from ~16.7% toward roughly 9-17% (a jackknife+/CV+ construction
+doesn't meaningfully beat this either, since it only guarantees `1-2α`
+coverage at this n — not a fix to the nominal 5%, contrary to how it
+might sound). **Rejected before any code was written**: `test_clean`
+currently serves as the project's last independent, never-calibrated
+real-data sanity check on the conformal threshold — the exact mechanism
+that caught the real bug described in §4 above (escalation flagging its
+own threshold-defining calib day). `train` cannot substitute as a
+replacement check, since it's already documented (§4's sibling finding,
+`cusum.py`'s own module docstring) as ~2x optimistically biased relative
+to held-out data. Pooling `test_clean` into calibration would leave no
+real, un-calibrated clean data anywhere in the project to catch the next
+version of that same bug class — judged not worth the marginal
+statistical gain. **Not used.**
+
+**The pattern across all five, worth stating plainly**: every path
+traced back to one of two structural limits — the 5-day real calibration
+floor (peak-window, faster CUSUM, pooled calibration), or the fact that
+A6-style slow drift never approaches the daily decision threshold that
+every gating mechanism in this architecture is built around (both
+combined-evidence variants). Neither limit was fixable within "no
+changes to the twin model or layer structure," and the one change that
+*would* move the calibration-floor number (pooled calibration) has a
+concrete, named cost that was judged not worth paying. This round's
+value is diagnostic, not corrective: it converts "these categories are
+probably near a data-constrained ceiling" from an inference into a
+directly demonstrated result.
