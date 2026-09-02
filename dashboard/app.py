@@ -67,6 +67,15 @@ READABLE_FACTORS = {
     "evidence_onsite_irradiation": "On-site sunlight reading",
     "night_claimed_kwh": "Power claimed at night",
     "yield_jump_frac": "Sudden jump vs. recent days",
+    # Day-level aggregated versions of the three evidence_* columns above
+    # (src/layer4_xai/flag_shap.py's compute_day_level_evidence_features,
+    # the actual column names Path A's suspicion-driver ranking uses) --
+    # separate keys because they're literally different column names
+    # (aggregated to one-row-per-date, "evidence_" prefix dropped, "_mean"
+    # suffix added), not a duplicate entry.
+    "irr_divergence_pct_mean": "On-site vs. satellite sunlight mismatch",
+    "temp_divergence_mean": "On-site vs. satellite temperature mismatch",
+    "onsite_irradiation_mean": "On-site sunlight reading",
 }
 
 
@@ -92,6 +101,43 @@ CAVEAT_BY_FLAG_TYPE = {
 
 def _plain_caveat(flag_type: str) -> str:
     return CAVEAT_BY_FLAG_TYPE.get(flag_type, "This is a statistical flag, not a confirmed finding — worth a manual check.")
+
+
+def _synthesize_physical_text(feats: list[tuple[str, float]]) -> str:
+    """
+    Turns the top 1-2 twin-SHAP drivers (already sorted by |contribution|,
+    src/layer4_xai/twin_shap.py) into one plain-language sentence, so the
+    chart isn't the only explanation on screen. Direction is well-defined
+    here (positive kW = pushed the estimate up, negative = pushed it
+    down — see LAYER4_MODULES_1_TO_5_HANDOFF.md SS1), so it's safe to state.
+    """
+    if not feats:
+        return ""
+    bits = [
+        f"**{_readable_factor(name)}** ({'pushed the estimate up' if val >= 0 else 'pushed it down'})"
+        for name, val in feats[:2]
+    ]
+    if len(bits) == 1:
+        return f"Biggest factor today: {bits[0]}."
+    return f"Biggest factors today: {bits[0]} and {bits[1]}."
+
+
+def _synthesize_suspicion_text(drivers: list[tuple[str, float]]) -> str:
+    """
+    Turns the top 1-2 flag-SHAP drivers (already sorted by |z-score|,
+    src/layer4_xai/flag_shap.py) into one plain-language sentence.
+    Deliberately magnitude-only, no up/down claim: unlike the physical
+    panel, what a positive vs. negative z-score MEANS varies per feature
+    (e.g. an unusually high vs. low on-site/satellite mismatch can both be
+    a red flag depending on the feature), so stating a direction here
+    could misrepresent what the number actually means.
+    """
+    if not drivers:
+        return ""
+    names = [f"**{_readable_factor(name)}**" for name, _ in drivers[:2]]
+    if len(names) == 1:
+        return f"The clue that stood out most: {names[0]} — far outside what normal, honest days look like."
+    return f"The clues that stood out most: {names[0]} and {names[1]} — both far outside what normal, honest days look like."
 
 st.set_page_config(page_title="CarbonTwinAI", page_icon="🌞", layout="wide")
 
@@ -290,6 +336,7 @@ with tab_detail:
                     fig = go.Figure(go.Bar(x=vals, y=names, orientation="h", marker_color=colors))
                     fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Effect on expected power (kW)")
                     st.plotly_chart(fig, width="stretch")
+                    st.info(_synthesize_physical_text(feats))
                 else:
                     st.caption("Weather conditions were too overcast for a detailed breakdown; a simpler physics-based estimate was used instead.")
 
@@ -304,6 +351,7 @@ with tab_detail:
                     fig2 = go.Figure(go.Bar(x=zscores, y=names, orientation="h", marker_color=colors))
                     fig2.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="How unusual, vs. normal clean days")
                     st.plotly_chart(fig2, width="stretch")
+                    st.info(_synthesize_suspicion_text(drivers))
                 else:
                     st.warning(susp["text"])
 

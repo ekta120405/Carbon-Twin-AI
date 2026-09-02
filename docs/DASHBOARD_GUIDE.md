@@ -350,6 +350,13 @@ The x-axis is labeled "Effect on expected power (kW)" — the actual
 kilowatt contribution of that specific factor to the day's final
 expectation number.
 
+Directly below the chart, a short blue info box turns the top 1-2 bars
+into a plain sentence, e.g. *"Biggest factors today: **panel temperature**
+(pushed it down) and **sunlight intensity** (pushed the estimate up)."*
+This is the same two biggest bars from the chart above it, just spelled
+out in words — useful if you want to state the reason out loud without
+reading a chart aloud.
+
 **If this panel instead shows a caption saying weather conditions were
 too overcast for a detailed breakdown:** this means the day fell below
 the cloudiness threshold where the system automatically switches to the
@@ -378,6 +385,15 @@ The x-axis is labeled "How unusual, vs. normal clean days" — a bar
 sticking far to the right (or left) means that specific measurement
 looked very different from what genuinely honest historical days look
 like.
+
+Directly below this chart too, a short blue info box names the top 1-2
+clues in a sentence, e.g. *"The clues that stood out most: **sudden jump
+vs. recent days** and **on-site vs. satellite sunlight mismatch** — both
+far outside what normal, honest days look like."* Deliberately doesn't
+say *which direction* each measurement was unusual in (unlike the left
+panel's box) — what "higher than normal" vs. "lower than normal" means
+varies by measurement, and guessing wrong here would misstate the
+evidence rather than just under-explain it.
 
 **Form 2 — a plain-text warning box** (for the two rule-based flags:
 reported power at night, or frozen sensor). There's nothing statistical
